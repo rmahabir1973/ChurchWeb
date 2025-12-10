@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Your Church Website - Church Web Global</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="funnel-page">
+    <!-- Progress Bar -->
+    <div class="progress-container">
+        <div class="container">
+            <div class="progress-bar">
+                <div class="progress-step active" data-step="1">
+                    <div class="progress-circle">1</div>
+                    <span>Choose Template</span>
+                </div>
+                <div class="progress-line"></div>
+                <div class="progress-step" data-step="2">
+                    <div class="progress-circle">2</div>
+                    <span>Select Pages</span>
+                </div>
+                <div class="progress-line"></div>
+                <div class="progress-step" data-step="3">
+                    <div class="progress-circle">3</div>
+                    <span>Customize</span>
+                </div>
+                <div class="progress-line"></div>
+                <div class="progress-step" data-step="4">
+                    <div class="progress-circle">4</div>
+                    <span>Preview & Sign Up</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Funnel Content -->
+    <div class="funnel-container">
+        <div class="container">
+            <!-- Step 1: Choose Template -->
+            <div class="funnel-step active" id="step1">
+                <div class="step-header">
+                    <h2>Choose Your Church Website Template</h2>
+                    <p>Select a beautiful template designed specifically for churches and ministries</p>
+                </div>
+
+                <div id="templates-loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading templates...</p>
+                </div>
+
+                <div id="templates-error" class="error-message" style="display: none;">
+                    <p>Error loading templates. Please refresh the page or contact support.</p>
+                </div>
+
+                <div id="templates-grid" class="templates-grid">
+                    <!-- Templates will be loaded here dynamically -->
+                </div>
+
+                <div class="step-actions">
+                    <a href="/" class="btn btn-secondary">← Back to Home</a>
+                    <button id="step1-next" class="btn btn-primary" disabled>Continue →</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Select Pages -->
+            <div class="funnel-step" id="step2">
+                <div class="step-header">
+                    <h2>What Pages Do You Need?</h2>
+                    <p>Select the pages you'd like to include on your church website</p>
+                </div>
+
+                <div class="pages-grid">
+                    <label class="page-checkbox">
+                        <input type="checkbox" name="page" value="home" checked disabled>
+                        <div class="checkbox-card">
+                            <span class="page-icon">🏠</span>
+                            <h4>Home</h4>
+                            <p>Your main welcome page</p>
+                            <span class="required-badge">Required</span>
+                        </div>
+                    </label>
+
+                    <label class="page-checkbox">
+                        <input type="checkbox" name="page" value="about" checked>
+                        <div class="checkbox-card">
+                            <span class="page-icon">ℹ️</span>
+                            <h4>About Us</h4>
+                            <p>Share your church's story</p>
+                        </div>
+                    </label>
+
+                    <label class="page-checkbox">
+                        <input type="checkbox" name="page" value="ministries" checked>
+                        <div class="checkbox-card">
+                            <span class="page-icon">🙏</span>
+                            <h4>Ministries</h4>
+                            <p>Showcase your ministry programs</p>
+                        </div>
+                    </label>
+
+                    <label class="page-checkbox">
+                        <input type="checkbox" name="page" value="sermons">
+                        <div class="checkbox-card">
+                            <span class="page-icon">🎤</span>
+                            <h4>Sermons</h4>
+                            <p>Share recorded messages</p>
+                        </div>
+                    </label>
+
+                    <label class="page-checkbox">
+                        <input type="checkbox" name="page" value="events" checked>
+                        <div class="checkbox-card">
+                            <span class="page-icon">📅</span>
+                            <h4>Events</h4>
+                            <p>Promote upcoming events</p>
+                        </div>
+                    </label>
+
+                    <label class="page-checkbox">
+                        <input type="checkbox" name="page" value="give">
+                        <div class="checkbox-card">
+                            <span class="page-icon">💝</span>
+                            <h4>Give</h4>
+                            <p>Online giving options</p>
+                        </div>
+                    </label>
+
+                    <label class="page-checkbox">
+                        <input type="checkbox" name="page" value="contact" checked>
+                        <div class="checkbox-card">
+                            <span class="page-icon">📧</span>
+                            <h4>Contact</h4>
+                            <p>Get in touch page</p>
+                        </div>
+                    </label>
+
+                    <label class="page-checkbox">
+                        <input type="checkbox" name="page" value="blog">
+                        <div class="checkbox-card">
+                            <span class="page-icon">📝</span>
+                            <h4>Blog</h4>
+                            <p>Share updates and articles</p>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="step-actions">
+                    <button id="step2-back" class="btn btn-secondary">← Back</button>
+                    <button id="step2-next" class="btn btn-primary">Continue →</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Customize -->
+            <div class="funnel-step" id="step3">
+                <div class="step-header">
+                    <h2>Tell Us About Your Church</h2>
+                    <p>We'll use this information to customize your website</p>
+                </div>
+
+                <div class="form-container">
+                    <form id="customization-form">
+                        <div class="form-group">
+                            <label for="church-name">Church Name *</label>
+                            <input type="text" id="church-name" required placeholder="e.g., Grace Community Church">
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="church-email">Email Address *</label>
+                                <input type="email" id="church-email" required placeholder="info@yourchurch.com">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="church-phone">Phone Number</label>
+                                <input type="tel" id="church-phone" placeholder="(555) 123-4567">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="church-address">Address</label>
+                            <input type="text" id="church-address" placeholder="123 Main St, City, State ZIP">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="church-description">Brief Description</label>
+                            <textarea id="church-description" rows="4" placeholder="Tell visitors about your church in a few sentences..."></textarea>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="service-time">Main Service Time</label>
+                                <input type="text" id="service-time" placeholder="e.g., Sunday 10:00 AM">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="pastor-name">Pastor/Leader Name</label>
+                                <input type="text" id="pastor-name" placeholder="e.g., Pastor John Smith">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Social Media (Optional)</label>
+                            <div class="social-inputs">
+                                <input type="url" id="facebook-url" placeholder="Facebook URL">
+                                <input type="url" id="instagram-url" placeholder="Instagram URL">
+                                <input type="url" id="youtube-url" placeholder="YouTube URL">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="step-actions">
+                    <button id="step3-back" class="btn btn-secondary">← Back</button>
+                    <button id="step3-next" class="btn btn-primary">Create Preview →</button>
+                </div>
+            </div>
+
+            <!-- Step 4: Preview & Sign Up -->
+            <div class="funnel-step" id="step4">
+                <div class="step-header">
+                    <h2>Your Website is Ready! 🎉</h2>
+                    <p>Preview your new church website and choose a plan to launch</p>
+                </div>
+
+                <div id="site-creating" class="loading">
+                    <div class="spinner"></div>
+                    <p>Creating your website preview...</p>
+                </div>
+
+                <div id="preview-container" style="display: none;">
+                    <div class="preview-box">
+                        <div class="preview-header">
+                            <h3 id="preview-site-name">Your Church Website</h3>
+                            <a id="preview-link" href="#" target="_blank" class="btn btn-secondary">Open Preview →</a>
+                        </div>
+                        <div class="preview-info">
+                            <p>Your website has been created! Click "Open Preview" to see it in a new tab.</p>
+                            <p class="preview-note">Note: This is a preview. Your site will be published once you complete signup.</p>
+                        </div>
+                    </div>
+
+                    <div class="signup-section">
+                        <h3>Choose Your Plan & Launch Your Site</h3>
+                        
+                        <div class="pricing-grid-small">
+                            <label class="pricing-radio">
+                                <input type="radio" name="plan" value="starter">
+                                <div class="plan-card">
+                                    <h4>Starter</h4>
+                                    <p class="plan-price">$19/month</p>
+                                    <ul>
+                                        <li>Professional Website</li>
+                                        <li>5 GB Storage</li>
+                                        <li>Free SSL</li>
+                                    </ul>
+                                </div>
+                            </label>
+
+                            <label class="pricing-radio">
+                                <input type="radio" name="plan" value="professional" checked>
+                                <div class="plan-card featured-plan">
+                                    <span class="plan-badge">Most Popular</span>
+                                    <h4>Professional</h4>
+                                    <p class="plan-price">$39/month</p>
+                                    <ul>
+                                        <li>Everything in Starter</li>
+                                        <li>10 Email Accounts</li>
+                                        <li>20 GB Storage</li>
+                                    </ul>
+                                </div>
+                            </label>
+
+                            <label class="pricing-radio">
+                                <input type="radio" name="plan" value="enterprise">
+                                <div class="plan-card">
+                                    <h4>Enterprise</h4>
+                                    <p class="plan-price">$79/month</p>
+                                    <ul>
+                                        <li>Everything in Pro</li>
+                                        <li>Unlimited Email</li>
+                                        <li>Unlimited Storage</li>
+                                    </ul>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="signup-form">
+                            <h4>Complete Your Account</h4>
+                            <form id="signup-form">
+                                <div class="form-group">
+                                    <label for="signup-email">Your Email *</label>
+                                    <input type="email" id="signup-email" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="signup-password">Password *</label>
+                                    <input type="password" id="signup-password" required>
+                                </div>
+                                <div class="form-group checkbox-group">
+                                    <label>
+                                        <input type="checkbox" required>
+                                        I agree to the Terms of Service and Privacy Policy
+                                    </label>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step-actions">
+                    <button id="step4-back" class="btn btn-secondary">← Back</button>
+                    <button id="step4-finish" class="btn btn-primary btn-large">Launch My Website →</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
