@@ -774,6 +774,19 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.preview-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.preview-actions .btn {
+    padding: 10px 20px;
+    font-size: 14px;
 }
 
 .preview-info p {

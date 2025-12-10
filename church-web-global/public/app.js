@@ -347,10 +347,17 @@ function displayPreview(data) {
     const section = document.getElementById('preview-section');
     const siteName = document.getElementById('preview-site-name');
     const previewLink = document.getElementById('preview-link');
+    const editorLink = document.getElementById('editor-link');
     const iframe = document.getElementById('preview-iframe');
 
     siteName.textContent = state.churchInfo.churchName;
     previewLink.href = data.previewUrl || '#';
+    
+    if (data.editorUrl) {
+        editorLink.href = data.editorUrl;
+        editorLink.style.display = 'inline-block';
+        state.editorUrl = data.editorUrl;
+    }
     
     if (data.previewUrl) {
         iframe.src = data.previewUrl;

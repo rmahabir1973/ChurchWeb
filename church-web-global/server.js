@@ -654,14 +654,16 @@ app.post('/api/sites/create', async (req, res) => {
       };
       createdSites.set(siteName, siteInfo);
       
-      // Get preview URL
+      // Get preview URL and editor URL
       const previewResult = await callDudaAPI('GET', `/sites/multiscreen/${siteName}`);
       const previewUrl = previewResult.data?.preview_site_url || `https://${uniqueSiteName}.dudapreview.com`;
+      const editorUrl = previewResult.data?.edit_site_url || null;
       
       res.json({ 
         success: true, 
         site: result.data,
         previewUrl: previewUrl,
+        editorUrl: editorUrl,
         customizations: {
           businessInfo: businessResult.success,
           content: contentResult.success
