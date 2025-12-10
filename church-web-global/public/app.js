@@ -92,9 +92,17 @@ function createTemplateCard(template) {
     card.className = 'template-card';
     card.dataset.templateId = template.id || template.template_id;
 
+    // Use DUDA thumbnail if available, otherwise use emoji icon
+    const thumbnailUrl = template.desktop_thumbnail_url || template.thumbnail_url;
+    const hasRealImage = thumbnailUrl && !thumbnailUrl.includes('null');
+    
+    const imageContent = hasRealImage 
+        ? `<img src="${thumbnailUrl}" alt="${template.template_name || template.name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.parentElement.innerHTML='<span style=\\'font-size: 64px;\\'>⛪</span>'">`
+        : `<span style="font-size: 64px;">${template.icon || '⛪'}</span>`;
+
     card.innerHTML = `
         <div class="template-image">
-            <span style="font-size: 64px;">${template.icon || '⛪'}</span>
+            ${imageContent}
         </div>
         <div class="template-info">
             <h3>${template.name || template.template_name}</h3>

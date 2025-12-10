@@ -20,7 +20,15 @@ app.use((req, res, next) => {
 // DUDA API Configuration
 const DUDA_API_USER = process.env.DUDA_API_USER;
 const DUDA_API_PASSWORD = process.env.DUDA_API_PASSWORD;
-const DUDA_API_ENDPOINT = process.env.DUDA_API_ENDPOINT || 'https://api.duda.co/api';
+// Ensure endpoint ends with /api (DUDA dashboard shows without /api but docs require it)
+let DUDA_API_ENDPOINT = process.env.DUDA_API_ENDPOINT || 'https://api.duda.co/api';
+// Only append /api if it's not already present (handle both /api and /api/)
+if (DUDA_API_ENDPOINT && !/\/api\/?$/.test(DUDA_API_ENDPOINT)) {
+  DUDA_API_ENDPOINT = DUDA_API_ENDPOINT.replace(/\/$/, '') + '/api';
+}
+// Remove trailing slash for consistency
+DUDA_API_ENDPOINT = DUDA_API_ENDPOINT.replace(/\/$/, '');
+console.log(`DUDA API Endpoint configured: ${DUDA_API_ENDPOINT}`);
 
 // Create base64 encoded auth string
 const authString = Buffer.from(`${DUDA_API_USER}:${DUDA_API_PASSWORD}`).toString('base64');

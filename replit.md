@@ -53,8 +53,10 @@ church-web-global/
 - Set up environment secrets for DUDA API credentials
 - Added demo mode support for mock templates when DUDA API is unavailable
 - Added input validation for site creation and signup endpoints
+- Fixed DUDA API endpoint normalization (auto-appends /api if not present)
+- Updated frontend to display real DUDA template thumbnail images
 
 ## Notes
-- The DUDA API templates endpoint may return 500 if credentials lack permissions - this is handled gracefully with fallback mock templates
-- Demo mode allows full funnel testing without active DUDA API connection
+- The DUDA_API_ENDPOINT secret should be set to the value from your DUDA dashboard (e.g., https://api.duda.co) - the system will automatically append /api if needed
+- Demo mode allows full funnel testing with mock templates if DUDA API is unavailable
 - Payment integration (Stripe/PayPal) needs to be added for production use
