@@ -482,10 +482,10 @@ function getDefaultPageContent(pageName, churchInfo) {
 // SITE CREATION ENDPOINTS
 // ============================================
 
-// Create a new site from template (unpublished)
+// Create a new site using AI generation (preferred) or template
 app.post('/api/sites/create', async (req, res) => {
   try {
-    const { templateId, churchInfo, pages } = req.body;
+    const { templateId, churchInfo, pages, useAI } = req.body;
     
     if (!churchInfo?.churchName) {
       return res.status(400).json({ success: false, error: 'Church name is required' });
@@ -514,7 +514,70 @@ app.post('/api/sites/create', async (req, res) => {
       });
     }
     
-    // Create real DUDA site
+    // Try AI-powered site generation first (creates fully customized site)
+    console.log('Attempting AI-powered site generation...');
+    const pageNames = pages?.map(p => p.name || p.slug).join(', ') || 'Home, About Us, Contact';
+    const aiGenData = {
+      business_name: churchInfo.churchName,
+      business_type: 'Church',
+      business_description: churchInfo.mission || `${churchInfo.churchName} is a welcoming church community dedicated to faith, fellowship, and service.`,
+      location: churchInfo.city && churchInfo.state ? `${churchInfo.city}, ${churchInfo.state}` : 'United States',
+      pages: pageNames
+    };
+    
+    const aiResult = await callDudaAPI('POST', '/sites/generate-ai', aiGenData);
+    
+    if (aiResult.success && aiResult.data?.id) {
+      // AI generation started - poll for completion
+      const taskId = aiResult.data.id;
+      console.log(`AI site generation started, task ID: ${taskId}`);
+      
+      // Poll for up to 60 seconds
+      let attempts = 0;
+      const maxAttempts = 30;
+      let siteName = null;
+      
+      while (attempts < maxAttempts && !siteName) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const statusResult = await callDudaAPI('GET', `/async-tasks/${taskId}`);
+        
+        if (statusResult.success) {
+          if (statusResult.data.status === 'COMPLETED' && statusResult.data.result?.site_name) {
+            siteName = statusResult.data.result.site_name;
+            console.log(`AI site generation completed: ${siteName}`);
+          } else if (statusResult.data.status === 'FAILED') {
+            console.log('AI generation failed, falling back to template...');
+            break;
+          }
+        }
+        attempts++;
+      }
+      
+      if (siteName) {
+        // Get preview URL for AI-generated site
+        const siteDetails = await callDudaAPI('GET', `/sites/multiscreen/${siteName}`);
+        const previewUrl = siteDetails.data?.preview_site_url || `https://${siteName}.dudapreview.com`;
+        
+        const siteInfo = {
+          site_name: siteName,
+          churchInfo: churchInfo,
+          pages: pages,
+          created: new Date().toISOString(),
+          ai_generated: true
+        };
+        createdSites.set(siteName, siteInfo);
+        
+        return res.json({ 
+          success: true, 
+          site: { site_name: siteName },
+          previewUrl: previewUrl,
+          method: 'ai_generated'
+        });
+      }
+    }
+    
+    // Fallback: Create from template
+    console.log('Using template-based site creation...');
     const siteData = {
       template_id: templateId,
       default_domain_prefix: uniqueSiteName
