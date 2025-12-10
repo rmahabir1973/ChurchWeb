@@ -11,7 +11,11 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  next();
+});
 
 // DUDA API Configuration
 const DUDA_API_USER = process.env.DUDA_API_USER;
@@ -93,13 +97,36 @@ app.get('/api/templates/:templateId', async (req, res) => {
   }
 });
 
+// Demo/mock template IDs for fallback mode
+const MOCK_TEMPLATE_IDS = ['modern-church', 'traditional-faith', 'community-focused', 'youth-ministry', 'contemporary-worship', 'ministry-hub'];
+
 // Create a new site from template
 app.post('/api/sites/create', async (req, res) => {
   try {
     const { templateId, siteName, pages, customization } = req.body;
     
-    // Generate a unique site name (you may want to add more logic here)
+    // Validate required fields
+    if (!siteName) {
+      return res.status(400).json({ success: false, error: 'Site name is required' });
+    }
+    
+    // Generate a unique site name
     const uniqueSiteName = `${siteName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${Date.now()}`;
+    
+    // Check if using mock template (demo mode)
+    if (!templateId || MOCK_TEMPLATE_IDS.includes(templateId)) {
+      // Demo mode - return success without calling DUDA API
+      return res.json({ 
+        success: true, 
+        site: {
+          site_name: uniqueSiteName,
+          template_id: templateId || 'modern-church',
+          demo_mode: true
+        },
+        previewUrl: `https://${uniqueSiteName}.churchwebglobal.com`,
+        message: 'Demo site created successfully. Connect to DUDA API for full functionality.'
+      });
+    }
     
     const siteData = {
       template_id: templateId,
@@ -204,11 +231,26 @@ app.post('/api/signup', async (req, res) => {
   try {
     const { siteName, email, plan, churchName } = req.body;
     
-    // TODO: Add payment processing (Stripe/PayPal)
-    // TODO: Add user account creation
-    // TODO: Add email confirmation
+    // Validate required fields
+    if (!email || !plan) {
+      return res.status(400).json({ success: false, error: 'Email and plan are required' });
+    }
     
-    // For now, just publish the site
+    // Check if this is a demo site (siteName contains mock template pattern or is undefined)
+    const isDemoSite = !siteName || siteName.includes('demo') || !siteName.includes('-');
+    
+    if (isDemoSite) {
+      // Demo mode - return success without calling DUDA API
+      return res.json({ 
+        success: true, 
+        message: 'Demo account created successfully! In production, payment processing and email confirmation would be added.',
+        site: siteName || churchName,
+        plan: plan,
+        demo_mode: true
+      });
+    }
+    
+    // For real sites, publish via DUDA API
     const publishResult = await callDudaAPI('POST', `/sites/multiscreen/publish/${siteName}`);
     
     if (publishResult.success) {
@@ -241,7 +283,7 @@ app.get('/funnel', (req, res) => {
 // START SERVER
 // ============================================
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Church Web Global server running on port ${PORT}`);
   console.log(`📍 Access at: http://localhost:${PORT}`);
   console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
