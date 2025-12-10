@@ -520,27 +520,89 @@ app.post('/api/sites/create', async (req, res) => {
       default_domain_prefix: uniqueSiteName
     };
     
-    // Note: site_business_info is updated after site creation, not during
-    
     const result = await callDudaAPI('POST', '/sites/multiscreen/create', siteData);
     
     if (result.success) {
+      const siteName = result.data.site_name;
+      console.log(`Site created: ${siteName}, now applying customizations...`);
+      
+      // Update site business info
+      const businessInfo = {
+        business_name: churchInfo.churchName,
+        address: {
+          street_address: churchInfo.address || '',
+          city: churchInfo.city || '',
+          region: churchInfo.state || '',
+          postal_code: churchInfo.zip || '',
+          country: 'US'
+        },
+        email: churchInfo.email || ''
+      };
+      
+      const businessResult = await callDudaAPI('POST', `/sites/multiscreen/${siteName}/site-business-info`, businessInfo);
+      console.log('Business info update:', businessResult.success ? 'Success' : businessResult.error);
+      
+      // Update site content with church name and location data
+      const contentUpdate = {
+        location_data: {
+          label: churchInfo.churchName,
+          emails: churchInfo.email ? [{ emailAddress: churchInfo.email, label: 'Main Email' }] : [],
+          address: {
+            streetAddress: churchInfo.address || '',
+            city: churchInfo.city || '',
+            region: churchInfo.state || '',
+            postalCode: churchInfo.zip || '',
+            country: 'US'
+          }
+        },
+        site_texts: {
+          overview: churchInfo.mission || `Welcome to ${churchInfo.churchName}. We are a welcoming community of faith.`,
+          about_us: `${churchInfo.churchName} is dedicated to serving our community and growing together in faith.`
+        },
+        business_data: {
+          name: churchInfo.churchName
+        }
+      };
+      
+      // Add custom text blocks for page content if AI content was generated
+      if (pages && pages.length > 0) {
+        const customTexts = [];
+        for (const page of pages) {
+          if (page.content) {
+            customTexts.push({
+              label: `${page.name || page.slug} Content`,
+              text: page.content
+            });
+          }
+        }
+        if (customTexts.length > 0) {
+          contentUpdate.site_texts.custom = customTexts;
+        }
+      }
+      
+      const contentResult = await callDudaAPI('POST', `/sites/multiscreen/${siteName}/content`, contentUpdate);
+      console.log('Content update:', contentResult.success ? 'Success' : JSON.stringify(contentResult.error));
+      
       const siteInfo = {
         ...result.data,
         churchInfo: churchInfo,
         pages: pages,
         created: new Date().toISOString()
       };
-      createdSites.set(result.data.site_name, siteInfo);
+      createdSites.set(siteName, siteInfo);
       
       // Get preview URL
-      const previewResult = await callDudaAPI('GET', `/sites/multiscreen/${result.data.site_name}`);
+      const previewResult = await callDudaAPI('GET', `/sites/multiscreen/${siteName}`);
       const previewUrl = previewResult.data?.preview_site_url || `https://${uniqueSiteName}.dudapreview.com`;
       
       res.json({ 
         success: true, 
         site: result.data,
-        previewUrl: previewUrl
+        previewUrl: previewUrl,
+        customizations: {
+          businessInfo: businessResult.success,
+          content: contentResult.success
+        }
       });
     } else {
       res.status(500).json({ success: false, error: result.error });

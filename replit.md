@@ -59,6 +59,11 @@ church-web-global/
 - Added input validation for site creation and signup endpoints
 - Fixed DUDA API endpoint normalization (auto-appends /api if not present)
 - Updated frontend to display real DUDA template thumbnail images
+- December 10, 2024: Enhanced site customization
+  - Site creation now properly applies church info to DUDA site
+  - Content Library API used to update business name, location, and texts
+  - AI-generated page content stored as custom text blocks
+  - Business info update endpoint for name/address/email
 - December 10, 2024: Enhanced WHMCS integration
   - Added WHMCS API credentials configuration
   - Invoice status polling endpoint for payment verification
