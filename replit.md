@@ -58,6 +58,12 @@ church-web-global/
 - Added input validation for site creation and signup endpoints
 - Fixed DUDA API endpoint normalization (auto-appends /api if not present)
 - Updated frontend to display real DUDA template thumbnail images
+- December 10, 2024: Enhanced WHMCS integration
+  - Added WHMCS API credentials configuration
+  - Invoice status polling endpoint for payment verification
+  - Site publish endpoint with payment confirmation check
+  - Frontend polling for payment status with auto-publish button
+  - Business info update endpoint after site creation
 
 ## Notes
 - The DUDA_API_ENDPOINT secret should be set to the value from your DUDA dashboard (e.g., https://api.duda.co) - the system will automatically append /api if needed

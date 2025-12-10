@@ -301,7 +301,9 @@ async function handleSignup() {
         email: document.getElementById('signup-email').value,
         password: document.getElementById('signup-password').value,
         plan: selectedPlan.value,
-        churchName: state.churchInfo.churchName
+        churchName: state.churchInfo.churchName,
+        firstName: state.churchInfo.contactName?.split(' ')[0] || state.churchInfo.churchName,
+        lastName: state.churchInfo.contactName?.split(' ').slice(1).join(' ') || 'Church'
     };
 
     const finishBtn = document.getElementById('step5-finish');
@@ -318,7 +320,9 @@ async function handleSignup() {
         const data = await response.json();
 
         if (data.success) {
-            showSuccess(signupData.plan);
+            state.invoiceId = data.invoiceId;
+            state.orderId = data.orderId;
+            showSuccess(signupData.plan, data);
         } else {
             alert('Signup failed: ' + (data.error || 'Please try again'));
             finishBtn.disabled = false;
@@ -332,7 +336,7 @@ async function handleSignup() {
     }
 }
 
-function showSuccess(plan) {
+function showSuccess(plan, signupData = {}) {
     document.querySelectorAll('.funnel-step').forEach(step => step.classList.remove('active'));
     document.getElementById('step-success').style.display = 'block';
     document.getElementById('step-success').classList.add('active');
@@ -341,6 +345,101 @@ function showSuccess(plan) {
     document.getElementById('success-plan').textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
     
     document.querySelector('.progress-container').style.display = 'none';
+    
+    // If we have invoice info, start polling for payment status
+    if (signupData.invoiceId) {
+        startPaymentPolling(signupData.invoiceId, state.createdSite?.site_name);
+    }
+}
+
+async function startPaymentPolling(invoiceId, siteName) {
+    const statusEl = document.getElementById('payment-status');
+    const publishBtn = document.getElementById('publish-site-btn');
+    
+    if (!statusEl) return;
+    
+    statusEl.textContent = 'Waiting for payment...';
+    statusEl.className = 'payment-status pending';
+    
+    const checkPayment = async () => {
+        try {
+            const response = await fetch(`/api/invoice/${invoiceId}/status`);
+            const data = await response.json();
+            
+            if (data.success && data.isPaid) {
+                statusEl.textContent = 'Payment confirmed!';
+                statusEl.className = 'payment-status paid';
+                
+                if (publishBtn) {
+                    publishBtn.disabled = false;
+                    publishBtn.textContent = 'Publish Your Site Now';
+                    publishBtn.onclick = () => publishSite(siteName, invoiceId);
+                }
+                return; // Stop polling
+            } else {
+                statusEl.textContent = 'Payment pending - complete payment in WHMCS';
+                setTimeout(checkPayment, 10000); // Check every 10 seconds
+            }
+        } catch (error) {
+            console.error('Payment check error:', error);
+            setTimeout(checkPayment, 15000);
+        }
+    };
+    
+    // Start polling after a short delay
+    setTimeout(checkPayment, 5000);
+}
+
+async function publishSite(siteName, invoiceId) {
+    const publishBtn = document.getElementById('publish-site-btn');
+    if (publishBtn) {
+        publishBtn.disabled = true;
+        publishBtn.textContent = 'Publishing...';
+    }
+    
+    try {
+        const response = await fetch(`/api/sites/${siteName}/publish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ invoiceId })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const statusEl = document.getElementById('payment-status');
+            if (statusEl) {
+                statusEl.textContent = 'Site is now live!';
+                statusEl.className = 'payment-status published';
+            }
+            
+            if (publishBtn) {
+                publishBtn.textContent = 'View Live Site';
+                publishBtn.disabled = false;
+                publishBtn.onclick = () => window.open(data.siteUrl, '_blank');
+            }
+            
+            const liveUrl = document.getElementById('live-site-url');
+            if (liveUrl && data.siteUrl) {
+                liveUrl.href = data.siteUrl;
+                liveUrl.textContent = data.siteUrl;
+                liveUrl.style.display = 'block';
+            }
+        } else {
+            alert('Could not publish site: ' + (data.error || 'Please try again'));
+            if (publishBtn) {
+                publishBtn.disabled = false;
+                publishBtn.textContent = 'Try Again';
+            }
+        }
+    } catch (error) {
+        console.error('Publish error:', error);
+        alert('Error publishing site. Please try again.');
+        if (publishBtn) {
+            publishBtn.disabled = false;
+            publishBtn.textContent = 'Try Again';
+        }
+    }
 }
 
 function goToStep(stepNumber) {

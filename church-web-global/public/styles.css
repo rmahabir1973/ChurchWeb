@@ -960,3 +960,31 @@ body {
         gap: 16px;
     }
 }
+
+/* ===================================
+   PAYMENT STATUS STYLES
+   =================================== */
+
+.payment-status {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.payment-status.pending {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.payment-status.paid {
+    background: #d1fae5;
+    color: #059669;
+}
+
+.payment-status.published {
+    background: #dbeafe;
+    color: #2563eb;
+}
+

@@ -284,13 +284,18 @@
                 <div style="text-align: center; padding: 60px 20px;">
                     <div style="font-size: 80px; margin-bottom: 24px;">🎉</div>
                     <h2>Account Created Successfully!</h2>
-                    <p style="font-size: 18px; color: #666; margin: 16px 0 32px;">Your church website has been saved. Complete payment to publish it live.</p>
-                    <div id="success-details" style="background: #f8f9fa; padding: 24px; border-radius: 12px; margin-bottom: 32px; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto;">
+                    <p style="font-size: 18px; color: #666; margin: 16px 0 32px;">Your church website has been saved. Complete payment in WHMCS to publish it live.</p>
+                    <div id="success-details" style="background: #f8f9fa; padding: 24px; border-radius: 12px; margin-bottom: 32px; text-align: left; max-width: 500px; margin-left: auto; margin-right: auto;">
                         <p><strong>Site:</strong> <span id="success-site-name"></span></p>
                         <p><strong>Plan:</strong> <span id="success-plan"></span></p>
-                        <p><strong>Status:</strong> Awaiting Payment</p>
+                        <p><strong>Payment Status:</strong> <span id="payment-status" class="payment-status pending">Checking...</span></p>
+                        <a href="#" id="live-site-url" style="display: none; word-break: break-all;"></a>
                     </div>
-                    <a href="/" class="btn btn-primary">Return to Home</a>
+                    <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+                        <button id="publish-site-btn" class="btn btn-primary" disabled style="padding: 14px 32px;">Waiting for Payment...</button>
+                        <a href="/" class="btn btn-secondary" style="padding: 14px 32px;">Return to Home</a>
+                    </div>
+                    <p style="margin-top: 24px; color: #888; font-size: 14px;">Check your email for payment instructions. Once paid, click "Publish Your Site" to go live.</p>
                 </div>
             </div>
         </div>

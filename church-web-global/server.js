@@ -391,16 +391,10 @@ app.post('/api/sites/create', async (req, res) => {
     // Create real DUDA site
     const siteData = {
       template_id: templateId,
-      default_domain_prefix: uniqueSiteName,
-      site_data: {
-        site_business_info: {
-          business_name: churchInfo.churchName,
-          email: churchInfo.email || '',
-          phone: churchInfo.phone || '',
-          address: churchInfo.address ? { street: churchInfo.address } : undefined
-        }
-      }
+      default_domain_prefix: uniqueSiteName
     };
+    
+    // Note: site_business_info is updated after site creation, not during
     
     const result = await callDudaAPI('POST', '/sites/multiscreen/create', siteData);
     
@@ -746,6 +740,131 @@ function getPlanProductId(planName) {
   };
   return planMap[planName] || '1';
 }
+
+// Check invoice payment status (for polling)
+app.get('/api/invoice/:invoiceId/status', async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    
+    if (!invoiceId) {
+      return res.status(400).json({ success: false, error: 'Invoice ID required' });
+    }
+    
+    const result = await callWHMCSAPI('GetInvoice', { invoiceid: invoiceId });
+    
+    if (result.success) {
+      const status = result.data.status; // Paid, Unpaid, Cancelled, etc.
+      res.json({ 
+        success: true, 
+        invoiceId: invoiceId,
+        status: status,
+        isPaid: status === 'Paid',
+        total: result.data.total,
+        paymentmethod: result.data.paymentmethod
+      });
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Publish site after payment is confirmed
+app.post('/api/sites/:siteName/publish', async (req, res) => {
+  try {
+    const { siteName } = req.params;
+    const { invoiceId } = req.body;
+    
+    // Verify payment if invoiceId provided
+    if (invoiceId) {
+      const invoiceResult = await callWHMCSAPI('GetInvoice', { invoiceid: invoiceId });
+      if (!invoiceResult.success || invoiceResult.data.status !== 'Paid') {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Payment not confirmed. Please complete payment first.' 
+        });
+      }
+    }
+    
+    // Check if demo mode
+    const siteInfo = createdSites.get(siteName);
+    if (siteInfo?.demo_mode) {
+      return res.json({ 
+        success: true, 
+        message: 'Demo site published (simulation)',
+        published: true,
+        siteUrl: `https://${siteName}.example.com`
+      });
+    }
+    
+    // Publish the site via DUDA API
+    const result = await callDudaAPI('POST', `/sites/multiscreen/publish/${siteName}`);
+    
+    if (result.success) {
+      // Update stored info
+      if (siteInfo) {
+        siteInfo.published = true;
+        siteInfo.publishedAt = new Date().toISOString();
+        createdSites.set(siteName, siteInfo);
+      }
+      
+      res.json({ 
+        success: true, 
+        message: 'Site published successfully!',
+        published: true,
+        siteUrl: result.data?.site_default_domain || result.data?.site_url
+      });
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update site business info (used after site creation)
+app.post('/api/sites/:siteName/business-info', async (req, res) => {
+  try {
+    const { siteName } = req.params;
+    const { churchInfo } = req.body;
+    
+    if (!churchInfo) {
+      return res.status(400).json({ success: false, error: 'Church info required' });
+    }
+    
+    const businessInfo = {
+      business_name: churchInfo.churchName,
+      email: churchInfo.email || undefined,
+      phone_number: churchInfo.phone || undefined,
+      address: churchInfo.address ? {
+        street: churchInfo.address,
+        city: churchInfo.city || '',
+        state: churchInfo.state || '',
+        zip_code: churchInfo.zip || '',
+        country: churchInfo.country || 'US'
+      } : undefined
+    };
+    
+    // Remove undefined values
+    Object.keys(businessInfo).forEach(key => 
+      businessInfo[key] === undefined && delete businessInfo[key]
+    );
+    
+    const result = await callDudaAPI('POST', `/sites/multiscreen/${siteName}/content`, {
+      site_texts: {},
+      business_data: businessInfo
+    });
+    
+    if (result.success) {
+      res.json({ success: true, message: 'Business info updated' });
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // ============================================
 // SERVE HTML PAGES
