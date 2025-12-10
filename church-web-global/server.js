@@ -25,11 +25,12 @@ const DUDA_API_ENDPOINT = process.env.DUDA_API_ENDPOINT || 'https://api.duda.co/
 // Create base64 encoded auth string
 const authString = Buffer.from(`${DUDA_API_USER}:${DUDA_API_PASSWORD}`).toString('base64');
 
-// DUDA API Headers
+// DUDA API Headers (User-Agent is required per DUDA documentation)
 const dudaHeaders = {
   'Authorization': `Basic ${authString}`,
   'Content-Type': 'application/json',
-  'Accept': 'application/json'
+  'Accept': 'application/json',
+  'User-Agent': 'ChurchWebGlobal/1.0'
 };
 
 // Helper function for DUDA API calls
@@ -42,13 +43,22 @@ async function callDudaAPI(method, endpoint, data = null) {
       data: data
     };
     
+    console.log(`DUDA API Request: ${method} ${endpoint}`);
     const response = await axios(config);
     return { success: true, data: response.data };
   } catch (error) {
-    console.error('DUDA API Error:', error.response?.data || error.message);
+    const statusCode = error.response?.status;
+    const errorData = error.response?.data || { message: error.message };
+    console.error(`DUDA API Error [${statusCode}]:`, errorData);
+    
+    if (statusCode === 403) {
+      console.error('403 Forbidden - This usually means: 1) Invalid API credentials, 2) API access not enabled on your DUDA plan, or 3) Missing permissions for this endpoint.');
+    }
+    
     return { 
       success: false, 
-      error: error.response?.data || { message: error.message }
+      error: errorData,
+      statusCode: statusCode
     };
   }
 }
