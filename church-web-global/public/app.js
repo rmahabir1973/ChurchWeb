@@ -7,6 +7,7 @@ const state = {
     churchInfo: {},
     suggestedPages: [],
     selectedPages: [],
+    pageContent: {},
     createdSite: null,
     previewUrl: null
 };
@@ -196,8 +197,8 @@ function renderDefaultPages() {
 }
 
 function createPageCard(page, checked) {
-    const label = document.createElement('label');
-    label.className = 'page-checkbox';
+    const div = document.createElement('div');
+    div.className = 'page-card-wrapper';
     
     const icons = {
         home: '🏠', about: 'ℹ️', services: '⛪', contact: '📧',
@@ -205,24 +206,101 @@ function createPageCard(page, checked) {
         connect: '🤝', prayer: '🙏', blog: '📝'
     };
 
-    label.innerHTML = `
-        <input type="checkbox" name="page" value="${page.slug}" ${checked ? 'checked' : ''} ${page.required ? 'disabled checked' : ''}>
-        <div class="checkbox-card">
-            <span class="page-icon">${icons[page.slug] || '📄'}</span>
-            <h4>${page.name}</h4>
-            <p>${page.description}</p>
-            ${page.required ? '<span class="required-badge">Required</span>' : ''}
+    div.innerHTML = `
+        <label class="page-checkbox">
+            <input type="checkbox" name="page" value="${page.slug}" ${checked ? 'checked' : ''} ${page.required ? 'disabled checked' : ''} onchange="togglePageContent('${page.slug}', this.checked)">
+            <div class="checkbox-card">
+                <span class="page-icon">${icons[page.slug] || '📄'}</span>
+                <h4>${page.name}</h4>
+                <p>${page.description}</p>
+                ${page.required ? '<span class="required-badge">Required</span>' : ''}
+            </div>
+        </label>
+        <div class="page-content-section" id="content-${page.slug}" style="display: ${checked ? 'block' : 'none'};">
+            <div class="content-header">
+                <span>Page Content (Optional)</span>
+                <button type="button" class="btn-ai-generate" onclick="generatePageContent('${page.slug}', '${page.name}')">
+                    <span class="ai-icon">✨</span> Generate with AI
+                </button>
+            </div>
+            <textarea 
+                id="textarea-${page.slug}" 
+                class="page-content-textarea" 
+                placeholder="Add content for your ${page.name} page, or click 'Generate with AI' to get started..."
+                rows="4"
+            ></textarea>
+            <div class="ai-generating" id="generating-${page.slug}" style="display: none;">
+                <span class="spinner-small"></span> Generating content...
+            </div>
         </div>
     `;
 
-    return label;
+    return div;
 }
+
+function togglePageContent(slug, isChecked) {
+    const contentSection = document.getElementById(`content-${slug}`);
+    if (contentSection) {
+        contentSection.style.display = isChecked ? 'block' : 'none';
+    }
+}
+
+async function generatePageContent(slug, pageName) {
+    const textarea = document.getElementById(`textarea-${slug}`);
+    const generating = document.getElementById(`generating-${slug}`);
+    const btn = document.querySelector(`#content-${slug} .btn-ai-generate`);
+    
+    if (!textarea) return;
+    
+    btn.disabled = true;
+    generating.style.display = 'flex';
+    
+    try {
+        const response = await fetch('/api/ai/generate-content', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pageName: slug,
+                churchInfo: state.churchInfo
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.content) {
+            textarea.value = data.content;
+            state.pageContent = state.pageContent || {};
+            state.pageContent[slug] = data.content;
+        } else {
+            alert('Could not generate content. Please try again or write your own.');
+        }
+    } catch (error) {
+        console.error('AI generation error:', error);
+        alert('Error generating content. Please try again.');
+    } finally {
+        btn.disabled = false;
+        generating.style.display = 'none';
+    }
+}
+
+// Store content when user types
+document.addEventListener('input', (e) => {
+    if (e.target.classList.contains('page-content-textarea')) {
+        const slug = e.target.id.replace('textarea-', '');
+        state.pageContent = state.pageContent || {};
+        state.pageContent[slug] = e.target.value;
+    }
+});
 
 async function handleStep3Submit() {
     const checkboxes = document.querySelectorAll('input[name="page"]:checked');
     state.selectedPages = Array.from(checkboxes).map(cb => {
         const pageInfo = state.suggestedPages.find(p => p.slug === cb.value);
-        return pageInfo || { slug: cb.value, name: cb.value };
+        const content = state.pageContent?.[cb.value] || '';
+        return { 
+            ...(pageInfo || { slug: cb.value, name: cb.value }),
+            content: content
+        };
     });
 
     goToStep(4);

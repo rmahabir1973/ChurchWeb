@@ -4,6 +4,19 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const path = require('path');
+const OpenAI = require('openai');
+
+// Initialize OpenAI client (uses Replit AI Integrations)
+let openai = null;
+if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+    openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
+    });
+    console.log('OpenAI AI Integration configured: Yes');
+} else {
+    console.log('OpenAI AI Integration configured: No');
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -169,6 +182,80 @@ app.get('/api/whmcs/test', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// AI Content Generation for page content
+app.post('/api/ai/generate-content', async (req, res) => {
+  try {
+    const { pageName, churchInfo, contentType } = req.body;
+    
+    if (!pageName || !churchInfo?.churchName) {
+      return res.status(400).json({ success: false, error: 'Page name and church info required' });
+    }
+    
+    if (!openai) {
+      return res.status(503).json({ success: false, error: 'AI content generation is not configured' });
+    }
+    
+    const prompt = buildContentPrompt(pageName, churchInfo, contentType);
+    
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a professional church website copywriter. Write warm, welcoming, and authentic content for church websites. Keep content concise, genuine, and focused on community and faith. Use a friendly but reverent tone.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      max_tokens: 500,
+      temperature: 0.7
+    });
+    
+    const generatedContent = completion.choices[0]?.message?.content || '';
+    
+    res.json({ 
+      success: true, 
+      content: generatedContent,
+      pageName: pageName
+    });
+  } catch (error) {
+    console.error('AI Content Generation Error:', error.message);
+    res.status(500).json({ success: false, error: 'Failed to generate content' });
+  }
+});
+
+// Build content generation prompt based on page type
+function buildContentPrompt(pageName, churchInfo, contentType = 'full') {
+  const churchName = churchInfo.churchName;
+  const denomination = churchInfo.denomination || '';
+  const description = churchInfo.description || '';
+  
+  const pagePrompts = {
+    'home': `Write a welcoming homepage introduction for ${churchName}${denomination ? `, a ${denomination} church` : ''}. Include: a warm welcome message, brief mission statement, and invitation to visit. ${description ? `Additional context: ${description}` : ''} Keep it to 2-3 short paragraphs.`,
+    
+    'about': `Write an "About Us" page for ${churchName}. Include: church history/story, mission and vision, what makes this church special, and core values. ${description ? `Context: ${description}` : ''} Keep it authentic and warm, 3-4 paragraphs.`,
+    
+    'services': `Write a "Services" or "Worship" page for ${churchName}. Describe typical worship service format, what visitors can expect, service times placeholder, and how to prepare for a visit. Keep it welcoming for newcomers, 2-3 paragraphs.`,
+    
+    'contact': `Write a brief "Contact Us" page introduction for ${churchName}. Be welcoming and encourage people to reach out with questions or prayer requests. Keep it to 1-2 short paragraphs.`,
+    
+    'ministries': `Write a "Ministries" page overview for ${churchName}. Describe various ministry opportunities like children's ministry, youth group, small groups, and outreach. Invite people to get involved. 2-3 paragraphs.`,
+    
+    'sermons': `Write a "Sermons" page introduction for ${churchName}. Describe what visitors will find (past sermons, series, topics) and encourage spiritual growth through the word. 1-2 paragraphs.`,
+    
+    'events': `Write an "Events" page introduction for ${churchName}. Describe the types of events the church hosts (worship nights, community events, holiday celebrations) and encourage participation. 1-2 paragraphs.`,
+    
+    'give': `Write a "Give" or "Donate" page for ${churchName}. Explain why giving matters, how donations support the church's mission, and express gratitude. Keep it genuine and not pushy. 2 paragraphs.`,
+    
+    'connect': `Write a "Connect" or "Get Involved" page for ${churchName}. Encourage visitors to join small groups, volunteer, or become members. Make it warm and inviting. 2 paragraphs.`
+  };
+  
+  return pagePrompts[pageName.toLowerCase()] || 
+    `Write content for the "${pageName}" page of ${churchName}. Keep it welcoming and appropriate for a church website. 2-3 paragraphs.`;
+}
 
 // Get all templates
 app.get('/api/templates', async (req, res) => {

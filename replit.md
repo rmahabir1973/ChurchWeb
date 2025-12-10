@@ -47,7 +47,8 @@ church-web-global/
 3. **DUDA Integration** - Creates and manages church websites via DUDA API
 4. **DUDA MCP AI** - AI-powered page and content suggestions
 5. **WHMCS Integration** - Client and order management (API polling for payment status)
-6. **Fallback Templates** - Mock templates display when DUDA API is unavailable
+6. **AI Content Generation** - OpenAI-powered content writing for each page
+7. **Fallback Templates** - Mock templates display when DUDA API is unavailable
 
 ## Recent Changes
 - December 10, 2024: Initial setup with full project structure
