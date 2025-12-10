@@ -131,6 +131,40 @@ app.get('/api/test', (req, res) => {
   });
 });
 
+// Test WHMCS connection
+app.get('/api/whmcs/test', async (req, res) => {
+  try {
+    const result = await callWHMCSAPI('GetHealthStatus');
+    
+    if (result.success) {
+      res.json({ 
+        success: true, 
+        message: 'WHMCS connection successful!',
+        data: result.data
+      });
+    } else {
+      // Try alternative API action
+      const altResult = await callWHMCSAPI('WhmcsDetails');
+      if (altResult.success) {
+        res.json({ 
+          success: true, 
+          message: 'WHMCS connection successful!',
+          version: altResult.data?.whmcs?.version,
+          data: altResult.data
+        });
+      } else {
+        res.status(500).json({ 
+          success: false, 
+          error: result.error || altResult.error,
+          configured: true
+        });
+      }
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Get all templates
 app.get('/api/templates', async (req, res) => {
   try {
