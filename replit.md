@@ -38,13 +38,16 @@ church-web-global/
 
 ## Features
 1. **Homepage** - Professional landing page with features, pricing, about, and contact sections
-2. **Website Builder Funnel** - 4-step process:
-   - Step 1: Choose template
-   - Step 2: Select pages
-   - Step 3: Customize church info
-   - Step 4: Preview and sign up
+2. **Website Builder Funnel** - 5-step process:
+   - Step 1: Choose Template (custom church templates only)
+   - Step 2: Church Info (collect church details)
+   - Step 3: Select Pages (AI-powered suggestions)
+   - Step 4: Preview (view unpublished site)
+   - Step 5: Sign Up (create account, select plan - no auto-publish)
 3. **DUDA Integration** - Creates and manages church websites via DUDA API
-4. **Fallback Templates** - Mock templates display when DUDA API is unavailable
+4. **DUDA MCP AI** - AI-powered page and content suggestions
+5. **WHMCS Integration** - Client and order management (API polling for payment status)
+6. **Fallback Templates** - Mock templates display when DUDA API is unavailable
 
 ## Recent Changes
 - December 10, 2024: Initial setup with full project structure

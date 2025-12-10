@@ -1,211 +1,120 @@
-// app.js - Frontend JavaScript for Church Web Global Funnel
+// app.js - Frontend JavaScript for Church Web Global 5-Step Funnel
 
-// State management
 const state = {
     currentStep: 1,
+    totalSteps: 5,
     selectedTemplate: null,
-    selectedPages: ['home', 'about', 'ministries', 'events', 'contact'],
-    customization: {},
-    createdSite: null
+    churchInfo: {},
+    suggestedPages: [],
+    selectedPages: [],
+    createdSite: null,
+    previewUrl: null
 };
 
-// Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     initializeFunnel();
 });
 
 function initializeFunnel() {
-    // Load templates on step 1
-    if (document.getElementById('step1')) {
-        loadTemplates();
-        setupStep1Listeners();
-    }
-
-    // Setup listeners for all steps
-    setupStep2Listeners();
-    setupStep3Listeners();
-    setupStep4Listeners();
+    loadTemplates();
+    setupAllListeners();
 }
 
-// =====================================
-// STEP 1: Template Selection
-// =====================================
+function setupAllListeners() {
+    document.getElementById('step1-next')?.addEventListener('click', () => {
+        if (state.selectedTemplate) goToStep(2);
+    });
+    
+    document.getElementById('step2-back')?.addEventListener('click', () => goToStep(1));
+    document.getElementById('step2-next')?.addEventListener('click', handleStep2Submit);
+    
+    document.getElementById('step3-back')?.addEventListener('click', () => goToStep(2));
+    document.getElementById('step3-next')?.addEventListener('click', handleStep3Submit);
+    
+    document.getElementById('step4-back')?.addEventListener('click', () => goToStep(3));
+    document.getElementById('step4-next')?.addEventListener('click', () => goToStep(5));
+    
+    document.getElementById('step5-back')?.addEventListener('click', () => goToStep(4));
+    document.getElementById('step5-finish')?.addEventListener('click', handleSignup);
+}
 
 async function loadTemplates() {
-    const templatesGrid = document.getElementById('templates-grid');
-    const loadingDiv = document.getElementById('templates-loading');
-    const errorDiv = document.getElementById('templates-error');
+    const grid = document.getElementById('templates-grid');
+    const loading = document.getElementById('templates-loading');
 
     try {
-        const response = await fetch('/api/templates');
+        const response = await fetch('/api/templates/custom');
         const data = await response.json();
+        loading.style.display = 'none';
 
-        loadingDiv.style.display = 'none';
-
-        if (data.success && data.templates) {
-            // If DUDA returns templates, use them
-            displayTemplates(data.templates);
+        if (data.success && data.templates?.length > 0) {
+            renderTemplates(data.templates);
         } else {
-            // Fallback to mock templates for demo
-            displayMockTemplates();
+            renderMockTemplates();
         }
     } catch (error) {
         console.error('Error loading templates:', error);
-        loadingDiv.style.display = 'none';
-        
-        // Show mock templates as fallback
-        displayMockTemplates();
+        loading.style.display = 'none';
+        renderMockTemplates();
     }
 }
 
-function displayTemplates(templates) {
-    const templatesGrid = document.getElementById('templates-grid');
-    templatesGrid.innerHTML = '';
+function renderTemplates(templates) {
+    const grid = document.getElementById('templates-grid');
+    grid.innerHTML = '';
 
     templates.forEach(template => {
-        const card = createTemplateCard(template);
-        templatesGrid.appendChild(card);
+        const card = document.createElement('div');
+        card.className = 'template-card';
+        card.dataset.templateId = template.template_id || template.id;
+
+        const thumbnailUrl = template.desktop_thumbnail_url || template.thumbnail_url;
+        const hasImage = thumbnailUrl && !thumbnailUrl.includes('null');
+        
+        card.innerHTML = `
+            <div class="template-image">
+                ${hasImage 
+                    ? `<img src="${thumbnailUrl}" alt="${template.template_name || template.name}" onerror="this.parentElement.innerHTML='<span style=font-size:64px>⛪</span>'">`
+                    : `<span style="font-size: 64px;">${template.icon || '⛪'}</span>`}
+            </div>
+            <div class="template-info">
+                <h3>${template.template_name || template.name}</h3>
+                <p>${template.description || 'Professional church website template'}</p>
+            </div>
+        `;
+
+        card.addEventListener('click', () => selectTemplate(template, card));
+        grid.appendChild(card);
     });
 }
 
-function displayMockTemplates() {
-    const templatesGrid = document.getElementById('templates-grid');
-    templatesGrid.innerHTML = '';
-
+function renderMockTemplates() {
     const mockTemplates = [
-        { id: 'modern-church', name: 'Modern Church', description: 'Clean and contemporary design', icon: '⛪' },
-        { id: 'traditional-faith', name: 'Traditional Faith', description: 'Classic church aesthetic', icon: '✝️' },
-        { id: 'community-focused', name: 'Community Focused', description: 'Welcoming and warm design', icon: '🤝' },
-        { id: 'youth-ministry', name: 'Youth Ministry', description: 'Vibrant and energetic style', icon: '🌟' },
-        { id: 'contemporary-worship', name: 'Contemporary Worship', description: 'Modern worship design', icon: '🎵' },
-        { id: 'ministry-hub', name: 'Ministry Hub', description: 'Multi-ministry focused', icon: '🏛️' }
+        { id: 'modern-church', template_id: 'modern-church', name: 'Modern Church', template_name: 'Modern Church', description: 'Clean and contemporary design', icon: '⛪' },
+        { id: 'traditional-faith', template_id: 'traditional-faith', name: 'Traditional Faith', template_name: 'Traditional Faith', description: 'Classic church aesthetic', icon: '✝️' },
+        { id: 'community-focused', template_id: 'community-focused', name: 'Community Focused', template_name: 'Community Focused', description: 'Welcoming and warm design', icon: '🤝' },
+        { id: 'youth-ministry', template_id: 'youth-ministry', name: 'Youth Ministry', template_name: 'Youth Ministry', description: 'Vibrant and energetic style', icon: '🌟' },
+        { id: 'contemporary-worship', template_id: 'contemporary-worship', name: 'Contemporary Worship', template_name: 'Contemporary Worship', description: 'Modern worship design', icon: '🎵' },
+        { id: 'ministry-hub', template_id: 'ministry-hub', name: 'Ministry Hub', template_name: 'Ministry Hub', description: 'Multi-ministry focused', icon: '🏛️' }
     ];
-
-    mockTemplates.forEach(template => {
-        const card = createTemplateCard(template);
-        templatesGrid.appendChild(card);
-    });
-}
-
-function createTemplateCard(template) {
-    const card = document.createElement('div');
-    card.className = 'template-card';
-    card.dataset.templateId = template.id || template.template_id;
-
-    // Use DUDA thumbnail if available, otherwise use emoji icon
-    const thumbnailUrl = template.desktop_thumbnail_url || template.thumbnail_url;
-    const hasRealImage = thumbnailUrl && !thumbnailUrl.includes('null');
-    
-    const imageContent = hasRealImage 
-        ? `<img src="${thumbnailUrl}" alt="${template.template_name || template.name}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.parentElement.innerHTML='<span style=\\'font-size: 64px;\\'>⛪</span>'">`
-        : `<span style="font-size: 64px;">${template.icon || '⛪'}</span>`;
-
-    card.innerHTML = `
-        <div class="template-image">
-            ${imageContent}
-        </div>
-        <div class="template-info">
-            <h3>${template.name || template.template_name}</h3>
-            <p>${template.description || 'Professional church website template'}</p>
-        </div>
-    `;
-
-    card.addEventListener('click', () => selectTemplate(template, card));
-
-    return card;
+    renderTemplates(mockTemplates);
 }
 
 function selectTemplate(template, cardElement) {
-    // Remove selection from all cards
-    document.querySelectorAll('.template-card').forEach(card => {
-        card.classList.remove('selected');
-    });
-
-    // Add selection to clicked card
+    document.querySelectorAll('.template-card').forEach(card => card.classList.remove('selected'));
     cardElement.classList.add('selected');
-
-    // Update state
     state.selectedTemplate = template;
-
-    // Enable next button
     document.getElementById('step1-next').disabled = false;
 }
 
-function setupStep1Listeners() {
-    const nextButton = document.getElementById('step1-next');
-    if (nextButton) {
-        nextButton.addEventListener('click', () => {
-            if (state.selectedTemplate) {
-                goToStep(2);
-            }
-        });
-    }
-}
-
-// =====================================
-// STEP 2: Page Selection
-// =====================================
-
-function setupStep2Listeners() {
-    const backButton = document.getElementById('step2-back');
-    const nextButton = document.getElementById('step2-next');
-
-    if (backButton) {
-        backButton.addEventListener('click', () => goToStep(1));
-    }
-
-    if (nextButton) {
-        nextButton.addEventListener('click', () => {
-            updateSelectedPages();
-            goToStep(3);
-        });
-    }
-
-    // Track checkbox changes
-    const checkboxes = document.querySelectorAll('input[name="page"]');
-    checkboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', updateSelectedPages);
-    });
-}
-
-function updateSelectedPages() {
-    const checkboxes = document.querySelectorAll('input[name="page"]:checked');
-    state.selectedPages = Array.from(checkboxes).map(cb => cb.value);
-}
-
-// =====================================
-// STEP 3: Customization
-// =====================================
-
-function setupStep3Listeners() {
-    const backButton = document.getElementById('step3-back');
-    const nextButton = document.getElementById('step3-next');
-
-    if (backButton) {
-        backButton.addEventListener('click', () => goToStep(2));
-    }
-
-    if (nextButton) {
-        nextButton.addEventListener('click', () => {
-            if (validateCustomizationForm()) {
-                collectCustomizationData();
-                createSitePreview();
-            }
-        });
-    }
-}
-
-function validateCustomizationForm() {
-    const form = document.getElementById('customization-form');
+async function handleStep2Submit() {
+    const form = document.getElementById('church-info-form');
     if (!form.checkValidity()) {
         form.reportValidity();
-        return false;
+        return;
     }
-    return true;
-}
 
-function collectCustomizationData() {
-    state.customization = {
+    state.churchInfo = {
         churchName: document.getElementById('church-name').value,
         email: document.getElementById('church-email').value,
         phone: document.getElementById('church-phone').value,
@@ -213,91 +122,171 @@ function collectCustomizationData() {
         description: document.getElementById('church-description').value,
         serviceTime: document.getElementById('service-time').value,
         pastorName: document.getElementById('pastor-name').value,
-        social: {
-            facebook: document.getElementById('facebook-url').value,
-            instagram: document.getElementById('instagram-url').value,
-            youtube: document.getElementById('youtube-url').value
-        }
+        denomination: document.getElementById('denomination').value
     };
+
+    goToStep(3);
+    await loadPageSuggestions();
 }
 
-// =====================================
-// STEP 4: Preview & Signup
-// =====================================
+async function loadPageSuggestions() {
+    const loading = document.getElementById('ai-loading');
+    const container = document.getElementById('pages-container');
+    
+    loading.style.display = 'block';
+    container.style.display = 'none';
+
+    try {
+        const response = await fetch('/api/ai/suggest-pages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(state.churchInfo)
+        });
+        const data = await response.json();
+
+        loading.style.display = 'none';
+        container.style.display = 'block';
+
+        if (data.success && data.suggestions) {
+            state.suggestedPages = data.suggestions;
+            renderPageSuggestions(data.suggestions);
+        } else {
+            renderDefaultPages();
+        }
+    } catch (error) {
+        console.error('Error getting suggestions:', error);
+        loading.style.display = 'none';
+        container.style.display = 'block';
+        renderDefaultPages();
+    }
+}
+
+function renderPageSuggestions(pages) {
+    const suggestedGrid = document.getElementById('suggested-pages');
+    const optionalGrid = document.getElementById('optional-pages');
+    
+    suggestedGrid.innerHTML = '';
+    optionalGrid.innerHTML = '';
+
+    const recommended = pages.filter(p => p.priority <= 2 || p.required);
+    const optional = pages.filter(p => p.priority > 2 && !p.required);
+
+    recommended.forEach(page => {
+        suggestedGrid.appendChild(createPageCard(page, true));
+    });
+
+    optional.forEach(page => {
+        optionalGrid.appendChild(createPageCard(page, false));
+    });
+}
+
+function renderDefaultPages() {
+    const defaultPages = [
+        { name: 'Home', slug: 'home', description: 'Welcome page', priority: 1, required: true },
+        { name: 'About Us', slug: 'about', description: 'Church story and mission', priority: 2 },
+        { name: 'Services', slug: 'services', description: 'Service times', priority: 2 },
+        { name: 'Contact', slug: 'contact', description: 'Contact information', priority: 2 },
+        { name: 'Ministries', slug: 'ministries', description: 'Ministry programs', priority: 3 },
+        { name: 'Sermons', slug: 'sermons', description: 'Past messages', priority: 3 },
+        { name: 'Events', slug: 'events', description: 'Upcoming events', priority: 3 },
+        { name: 'Give', slug: 'give', description: 'Online giving', priority: 4 }
+    ];
+    state.suggestedPages = defaultPages;
+    renderPageSuggestions(defaultPages);
+}
+
+function createPageCard(page, checked) {
+    const label = document.createElement('label');
+    label.className = 'page-checkbox';
+    
+    const icons = {
+        home: '🏠', about: 'ℹ️', services: '⛪', contact: '📧',
+        ministries: '🙏', sermons: '🎤', events: '📅', give: '💝',
+        connect: '🤝', prayer: '🙏', blog: '📝'
+    };
+
+    label.innerHTML = `
+        <input type="checkbox" name="page" value="${page.slug}" ${checked ? 'checked' : ''} ${page.required ? 'disabled checked' : ''}>
+        <div class="checkbox-card">
+            <span class="page-icon">${icons[page.slug] || '📄'}</span>
+            <h4>${page.name}</h4>
+            <p>${page.description}</p>
+            ${page.required ? '<span class="required-badge">Required</span>' : ''}
+        </div>
+    `;
+
+    return label;
+}
+
+async function handleStep3Submit() {
+    const checkboxes = document.querySelectorAll('input[name="page"]:checked');
+    state.selectedPages = Array.from(checkboxes).map(cb => {
+        const pageInfo = state.suggestedPages.find(p => p.slug === cb.value);
+        return pageInfo || { slug: cb.value, name: cb.value };
+    });
+
+    goToStep(4);
+    await createSitePreview();
+}
 
 async function createSitePreview() {
-    goToStep(4);
-
-    const loadingDiv = document.getElementById('site-creating');
-    const previewContainer = document.getElementById('preview-container');
-
-    loadingDiv.style.display = 'block';
-    previewContainer.style.display = 'none';
+    const loading = document.getElementById('preview-loading');
+    const section = document.getElementById('preview-section');
+    
+    loading.style.display = 'block';
+    section.style.display = 'none';
 
     try {
         const response = await fetch('/api/sites/create', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                templateId: state.selectedTemplate.id || state.selectedTemplate.template_id,
-                siteName: state.customization.churchName,
-                pages: state.selectedPages,
-                customization: state.customization
+                templateId: state.selectedTemplate.template_id || state.selectedTemplate.id,
+                churchInfo: state.churchInfo,
+                pages: state.selectedPages
             })
         });
 
         const data = await response.json();
-
-        loadingDiv.style.display = 'none';
+        loading.style.display = 'none';
 
         if (data.success) {
             state.createdSite = data.site;
-            displaySitePreview(data);
+            state.previewUrl = data.previewUrl;
+            displayPreview(data);
         } else {
-            alert('Error creating site preview. Please try again or contact support.');
+            alert('Error creating preview. Please try again.');
             console.error('Site creation error:', data.error);
         }
     } catch (error) {
-        loadingDiv.style.display = 'none';
+        loading.style.display = 'none';
         console.error('Error creating site:', error);
-        alert('Error creating site preview. Please try again or contact support.');
+        alert('Error creating preview. Please try again.');
     }
 }
 
-function displaySitePreview(data) {
-    const previewContainer = document.getElementById('preview-container');
+function displayPreview(data) {
+    const section = document.getElementById('preview-section');
     const siteName = document.getElementById('preview-site-name');
     const previewLink = document.getElementById('preview-link');
+    const iframe = document.getElementById('preview-iframe');
 
-    siteName.textContent = state.customization.churchName;
+    siteName.textContent = state.churchInfo.churchName;
     previewLink.href = data.previewUrl || '#';
-
-    // Pre-fill signup email
-    document.getElementById('signup-email').value = state.customization.email;
-
-    previewContainer.style.display = 'block';
-}
-
-function setupStep4Listeners() {
-    const backButton = document.getElementById('step4-back');
-    const finishButton = document.getElementById('step4-finish');
-
-    if (backButton) {
-        backButton.addEventListener('click', () => goToStep(3));
+    
+    if (data.previewUrl) {
+        iframe.src = data.previewUrl;
     }
 
-    if (finishButton) {
-        finishButton.addEventListener('click', handleSignup);
-    }
+    section.style.display = 'block';
+    
+    document.getElementById('signup-email').value = state.churchInfo.email;
 }
 
 async function handleSignup() {
-    const signupForm = document.getElementById('signup-form');
-    
-    if (!signupForm.checkValidity()) {
-        signupForm.reportValidity();
+    const form = document.getElementById('signup-form');
+    if (!form.checkValidity()) {
+        form.reportValidity();
         return;
     }
 
@@ -308,121 +297,74 @@ async function handleSignup() {
     }
 
     const signupData = {
-        siteName: state.createdSite?.site_name || state.customization.churchName,
+        siteName: state.createdSite?.site_name,
         email: document.getElementById('signup-email').value,
         password: document.getElementById('signup-password').value,
         plan: selectedPlan.value,
-        churchName: state.customization.churchName
+        churchName: state.churchInfo.churchName
     };
+
+    const finishBtn = document.getElementById('step5-finish');
+    finishBtn.disabled = true;
+    finishBtn.textContent = 'Creating Account...';
 
     try {
         const response = await fetch('/api/signup', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(signupData)
         });
 
         const data = await response.json();
 
         if (data.success) {
-            // Success! Redirect to success page or dashboard
-            showSuccessMessage();
+            showSuccess(signupData.plan);
         } else {
-            alert('Signup failed. Please try again or contact support.');
-            console.error('Signup error:', data.error);
+            alert('Signup failed: ' + (data.error || 'Please try again'));
+            finishBtn.disabled = false;
+            finishBtn.textContent = 'Create Account & Pay';
         }
     } catch (error) {
         console.error('Signup error:', error);
-        alert('Signup failed. Please try again or contact support.');
+        alert('Signup failed. Please try again.');
+        finishBtn.disabled = false;
+        finishBtn.textContent = 'Create Account & Pay';
     }
 }
 
-function showSuccessMessage() {
-    const container = document.querySelector('.funnel-container .container');
-    container.innerHTML = `
-        <div style="text-align: center; padding: 80px 20px;">
-            <div style="font-size: 80px; margin-bottom: 24px;">🎉</div>
-            <h2 style="font-size: 36px; margin-bottom: 16px;">Welcome to Church Web Global!</h2>
-            <p style="font-size: 18px; color: var(--text-secondary); margin-bottom: 32px;">
-                Your church website has been created and published successfully!
-            </p>
-            <p style="margin-bottom: 32px;">
-                You'll receive a confirmation email shortly with your login details and next steps.
-            </p>
-            <a href="/" class="btn btn-primary">Return to Home</a>
-        </div>
-    `;
+function showSuccess(plan) {
+    document.querySelectorAll('.funnel-step').forEach(step => step.classList.remove('active'));
+    document.getElementById('step-success').style.display = 'block';
+    document.getElementById('step-success').classList.add('active');
+    
+    document.getElementById('success-site-name').textContent = state.churchInfo.churchName;
+    document.getElementById('success-plan').textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
+    
+    document.querySelector('.progress-container').style.display = 'none';
 }
 
-// =====================================
-// Navigation
-// =====================================
-
 function goToStep(stepNumber) {
-    // Hide all steps
-    document.querySelectorAll('.funnel-step').forEach(step => {
-        step.classList.remove('active');
-    });
-
-    // Show target step
+    document.querySelectorAll('.funnel-step').forEach(step => step.classList.remove('active'));
+    
     const targetStep = document.getElementById(`step${stepNumber}`);
     if (targetStep) {
         targetStep.classList.add('active');
     }
 
-    // Update progress bar
     updateProgressBar(stepNumber);
-
-    // Update state
     state.currentStep = stepNumber;
-
-    // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function updateProgressBar(currentStep) {
     document.querySelectorAll('.progress-step').forEach((step, index) => {
         const stepNum = index + 1;
+        step.classList.remove('active', 'completed');
         
         if (stepNum < currentStep) {
             step.classList.add('completed');
-            step.classList.remove('active');
         } else if (stepNum === currentStep) {
             step.classList.add('active');
-            step.classList.remove('completed');
-        } else {
-            step.classList.remove('active', 'completed');
         }
     });
-}
-
-// =====================================
-// Utility Functions
-// =====================================
-
-function showLoading(elementId) {
-    const element = document.getElementById(elementId);
-    if (element) {
-        element.style.display = 'block';
-    }
-}
-
-function hideLoading(elementId) {
-    const element = document.getElementById(elementId);
-    if (element) {
-        element.style.display = 'none';
-    }
-}
-
-// Export for testing (if needed)
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        state,
-        goToStep,
-        selectTemplate,
-        updateSelectedPages,
-        collectCustomizationData
-    };
 }
