@@ -94,19 +94,24 @@ async function callWHMCSAPI(action, params = {}) {
       ...params
     });
     
-    console.log(`WHMCS API Request: ${action}`);
+    console.log(`WHMCS API Request: ${action} to ${WHMCS_API_URL}`);
     const response = await axios.post(WHMCS_API_URL, formData, {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      timeout: 30000
     });
+    
+    console.log(`WHMCS API Response:`, JSON.stringify(response.data).substring(0, 200));
     
     if (response.data.result === 'success') {
       return { success: true, data: response.data };
     } else {
-      return { success: false, error: response.data.message || 'WHMCS error' };
+      return { success: false, error: response.data.message || 'WHMCS error', rawResponse: response.data };
     }
   } catch (error) {
-    console.error('WHMCS API Error:', error.message);
-    return { success: false, error: error.message };
+    const statusCode = error.response?.status;
+    const responseData = error.response?.data;
+    console.error(`WHMCS API Error [${statusCode}]:`, error.message, responseData ? JSON.stringify(responseData).substring(0, 200) : '');
+    return { success: false, error: error.message, statusCode, responseData };
   }
 }
 
@@ -134,31 +139,31 @@ app.get('/api/test', (req, res) => {
 // Test WHMCS connection
 app.get('/api/whmcs/test', async (req, res) => {
   try {
-    const result = await callWHMCSAPI('GetHealthStatus');
+    // Use GetProducts - commonly available action to test connection
+    const result = await callWHMCSAPI('GetProducts');
     
     if (result.success) {
       res.json({ 
         success: true, 
         message: 'WHMCS connection successful!',
-        data: result.data
+        productCount: result.data?.totalresults || 0,
+        products: result.data?.products?.product?.map(p => ({ id: p.pid, name: p.name })) || []
+      });
+    } else if (result.rawResponse) {
+      // Connection worked but got an error response
+      res.json({ 
+        success: false, 
+        message: 'WHMCS responded but returned an error',
+        error: result.error,
+        hint: 'Check API credentials permissions in WHMCS Admin > Setup > Staff Management > API Credentials'
       });
     } else {
-      // Try alternative API action
-      const altResult = await callWHMCSAPI('WhmcsDetails');
-      if (altResult.success) {
-        res.json({ 
-          success: true, 
-          message: 'WHMCS connection successful!',
-          version: altResult.data?.whmcs?.version,
-          data: altResult.data
-        });
-      } else {
-        res.status(500).json({ 
-          success: false, 
-          error: result.error || altResult.error,
-          configured: true
-        });
-      }
+      res.status(500).json({ 
+        success: false, 
+        error: result.error,
+        statusCode: result.statusCode,
+        configured: true
+      });
     }
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
