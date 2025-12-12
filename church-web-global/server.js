@@ -4,7 +4,44 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 const OpenAI = require('openai');
+
+// Config file paths
+const CONFIG_DIR = path.join(__dirname, 'config');
+const TEMPLATES_CONFIG = path.join(CONFIG_DIR, 'templates.json');
+const ADMIN_CONFIG = path.join(CONFIG_DIR, 'admin.json');
+
+// Ensure config directory exists
+if (!fs.existsSync(CONFIG_DIR)) {
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+}
+
+// Load or initialize config files
+function loadConfig(filePath, defaultData) {
+    try {
+        if (fs.existsSync(filePath)) {
+            return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        }
+    } catch (error) {
+        console.error(`Error loading config ${filePath}:`, error);
+    }
+    fs.writeFileSync(filePath, JSON.stringify(defaultData, null, 2));
+    return defaultData;
+}
+
+function saveConfig(filePath, data) {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+// Simple password hashing
+function hashPassword(password) {
+    return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+// Session storage (in-memory for simplicity)
+const adminSessions = new Map();
 
 // Initialize OpenAI client (uses Replit AI Integrations)
 let openai = null;
@@ -275,35 +312,36 @@ app.get('/api/templates', async (req, res) => {
   }
 });
 
-// Get only CUSTOM templates (filtered to approved templates only)
-// Currently only the "Modern Church" template (dde17a8d) is approved for use
-const APPROVED_TEMPLATES = ['dde17a8d'];
-
-// Custom thumbnail overrides - map base_site_name to custom image URL
-// Add your own thumbnail URLs here to override DUDA's auto-generated ones
-const CUSTOM_THUMBNAILS = {
-  'dde17a8d': null  // Set to a URL like 'https://your-cdn.com/modern-church-thumb.png' to override
-};
-
+// Get only CUSTOM templates (filtered to approved templates from config)
 app.get('/api/templates/custom', async (req, res) => {
   try {
+    const templatesConfig = loadConfig(TEMPLATES_CONFIG, { approved_templates: [] });
+    const enabledTemplates = templatesConfig.approved_templates.filter(t => t.enabled);
+    
+    if (enabledTemplates.length === 0) {
+      return res.json({ success: true, templates: [] });
+    }
+    
     const result = await callDudaAPI('GET', '/sites/multiscreen/templates');
     
     if (result.success && Array.isArray(result.data)) {
+      const approvedIds = enabledTemplates.map(t => t.base_site_name);
+      
       // Filter to only show approved templates and apply custom thumbnails
       const customTemplates = result.data
-        .filter(template => APPROVED_TEMPLATES.includes(template.base_site_name))
+        .filter(template => approvedIds.includes(template.base_site_name))
         .map(template => {
-          // Override thumbnail if custom one is configured
-          const customThumb = CUSTOM_THUMBNAILS[template.base_site_name];
-          if (customThumb) {
-            return {
-              ...template,
-              thumbnail_url: customThumb,
-              desktop_thumbnail_url: customThumb
-            };
-          }
-          return template;
+          // Find config for this template
+          const config = enabledTemplates.find(t => t.base_site_name === template.base_site_name);
+          
+          // Override thumbnail and name if custom ones are configured
+          return {
+            ...template,
+            template_name: config?.name || template.template_name,
+            description: config?.description || template.description,
+            thumbnail_url: config?.custom_thumbnail || template.thumbnail_url,
+            desktop_thumbnail_url: config?.custom_thumbnail || template.desktop_thumbnail_url
+          };
         });
       
       res.json({ success: true, templates: customTemplates });
@@ -1379,6 +1417,171 @@ app.post('/api/sites/:siteName/business-info', async (req, res) => {
 });
 
 // ============================================
+// ADMIN API ENDPOINTS
+// ============================================
+
+// Admin authentication middleware
+function requireAdmin(req, res, next) {
+    const sessionId = req.headers['x-admin-session'] || req.query.session;
+    if (sessionId && adminSessions.has(sessionId)) {
+        next();
+    } else {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+}
+
+// Check admin status
+app.get('/api/admin/status', (req, res) => {
+    const adminConfig = loadConfig(ADMIN_CONFIG, { admin_password_hash: null });
+    const sessionId = req.headers['x-admin-session'];
+    
+    res.json({
+        needsSetup: !adminConfig.admin_password_hash,
+        authenticated: sessionId && adminSessions.has(sessionId)
+    });
+});
+
+// Admin login
+app.post('/api/admin/login', (req, res) => {
+    const { password } = req.body;
+    
+    if (!password) {
+        return res.status(400).json({ success: false, error: 'Password required' });
+    }
+    
+    const adminConfig = loadConfig(ADMIN_CONFIG, { admin_password_hash: null });
+    const hashedPassword = hashPassword(password);
+    
+    // First-time setup: set the password
+    if (!adminConfig.admin_password_hash) {
+        adminConfig.admin_password_hash = hashedPassword;
+        saveConfig(ADMIN_CONFIG, adminConfig);
+        
+        const sessionId = crypto.randomBytes(32).toString('hex');
+        adminSessions.set(sessionId, { created: Date.now() });
+        
+        res.json({ success: true, sessionId, message: 'Admin password set' });
+        return;
+    }
+    
+    // Verify password
+    if (hashedPassword === adminConfig.admin_password_hash) {
+        const sessionId = crypto.randomBytes(32).toString('hex');
+        adminSessions.set(sessionId, { created: Date.now() });
+        
+        res.json({ success: true, sessionId });
+    } else {
+        res.status(401).json({ success: false, error: 'Invalid password' });
+    }
+});
+
+// Admin logout
+app.post('/api/admin/logout', (req, res) => {
+    const sessionId = req.headers['x-admin-session'];
+    if (sessionId) {
+        adminSessions.delete(sessionId);
+    }
+    res.json({ success: true });
+});
+
+// Change admin password
+app.post('/api/admin/change-password', (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    
+    if (!currentPassword || !newPassword) {
+        return res.status(400).json({ success: false, error: 'Current and new passwords required' });
+    }
+    
+    if (newPassword.length < 6) {
+        return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
+    }
+    
+    const adminConfig = loadConfig(ADMIN_CONFIG, { admin_password_hash: null });
+    
+    if (hashPassword(currentPassword) !== adminConfig.admin_password_hash) {
+        return res.status(401).json({ success: false, error: 'Current password is incorrect' });
+    }
+    
+    adminConfig.admin_password_hash = hashPassword(newPassword);
+    saveConfig(ADMIN_CONFIG, adminConfig);
+    
+    res.json({ success: true, message: 'Password updated' });
+});
+
+// Get all templates (admin)
+app.get('/api/admin/templates', (req, res) => {
+    const templatesConfig = loadConfig(TEMPLATES_CONFIG, { approved_templates: [] });
+    res.json({ success: true, templates: templatesConfig.approved_templates });
+});
+
+// Add template (admin)
+app.post('/api/admin/templates', (req, res) => {
+    const { base_site_name, name, description, custom_thumbnail, enabled } = req.body;
+    
+    if (!base_site_name || !name) {
+        return res.status(400).json({ success: false, error: 'Template ID and name are required' });
+    }
+    
+    const templatesConfig = loadConfig(TEMPLATES_CONFIG, { approved_templates: [] });
+    
+    // Check if template already exists
+    const exists = templatesConfig.approved_templates.some(t => t.base_site_name === base_site_name);
+    if (exists) {
+        return res.status(400).json({ success: false, error: 'Template with this ID already exists' });
+    }
+    
+    templatesConfig.approved_templates.push({
+        base_site_name,
+        name,
+        description: description || '',
+        custom_thumbnail: custom_thumbnail || null,
+        enabled: enabled !== false
+    });
+    
+    saveConfig(TEMPLATES_CONFIG, templatesConfig);
+    res.json({ success: true, message: 'Template added' });
+});
+
+// Update template (admin)
+app.put('/api/admin/templates/:index', (req, res) => {
+    const index = parseInt(req.params.index);
+    const { base_site_name, name, description, custom_thumbnail, enabled } = req.body;
+    
+    const templatesConfig = loadConfig(TEMPLATES_CONFIG, { approved_templates: [] });
+    
+    if (index < 0 || index >= templatesConfig.approved_templates.length) {
+        return res.status(404).json({ success: false, error: 'Template not found' });
+    }
+    
+    templatesConfig.approved_templates[index] = {
+        base_site_name: base_site_name || templatesConfig.approved_templates[index].base_site_name,
+        name: name || templatesConfig.approved_templates[index].name,
+        description: description !== undefined ? description : templatesConfig.approved_templates[index].description,
+        custom_thumbnail: custom_thumbnail !== undefined ? custom_thumbnail : templatesConfig.approved_templates[index].custom_thumbnail,
+        enabled: enabled !== undefined ? enabled : templatesConfig.approved_templates[index].enabled
+    };
+    
+    saveConfig(TEMPLATES_CONFIG, templatesConfig);
+    res.json({ success: true, message: 'Template updated' });
+});
+
+// Delete template (admin)
+app.delete('/api/admin/templates/:index', (req, res) => {
+    const index = parseInt(req.params.index);
+    
+    const templatesConfig = loadConfig(TEMPLATES_CONFIG, { approved_templates: [] });
+    
+    if (index < 0 || index >= templatesConfig.approved_templates.length) {
+        return res.status(404).json({ success: false, error: 'Template not found' });
+    }
+    
+    templatesConfig.approved_templates.splice(index, 1);
+    saveConfig(TEMPLATES_CONFIG, templatesConfig);
+    
+    res.json({ success: true, message: 'Template deleted' });
+});
+
+// ============================================
 // SERVE HTML PAGES
 // ============================================
 
@@ -1392,6 +1595,10 @@ app.get('/old', (req, res) => {
 
 app.get('/funnel', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'funnel.html'));
+});
+
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
 // ============================================

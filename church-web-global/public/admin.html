@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Church Web Global</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+        }
+        
+        .login-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .login-box h1 {
+            color: #1E1B4B;
+            margin-bottom: 8px;
+            font-size: 24px;
+        }
+        
+        .login-box p {
+            color: #64748b;
+            margin-bottom: 24px;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: #374151;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #6B46C1;
+            box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.1);
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #6B46C1 0%, #D946A6 100%);
+            color: white;
+            width: 100%;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(107, 70, 193, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #374151;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .error-message {
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+        }
+        
+        /* Admin Dashboard */
+        .admin-container {
+            display: none;
+        }
+        
+        .admin-header {
+            background: #1E1B4B;
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .admin-header h1 {
+            font-size: 20px;
+        }
+        
+        .admin-nav {
+            display: flex;
+            gap: 16px;
+        }
+        
+        .admin-nav button {
+            background: transparent;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        
+        .admin-nav button:hover,
+        .admin-nav button.active {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        
+        .logout-btn {
+            background: rgba(255,255,255,0.1) !important;
+            color: white !important;
+        }
+        
+        .admin-content {
+            padding: 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .section {
+            display: none;
+        }
+        
+        .section.active {
+            display: block;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        
+        .section-header h2 {
+            color: #1E1B4B;
+            font-size: 24px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .card-header h3 {
+            color: #1E1B4B;
+            font-size: 18px;
+        }
+        
+        /* Template Cards */
+        .template-card {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+        
+        .template-thumbnail {
+            width: 150px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 8px;
+            background: #e5e7eb;
+        }
+        
+        .template-info {
+            flex: 1;
+        }
+        
+        .template-info h4 {
+            color: #1E1B4B;
+            margin-bottom: 4px;
+        }
+        
+        .template-info p {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .template-id {
+            font-family: monospace;
+            background: #f3f4f6;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .template-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .template-actions .btn {
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-enabled {
+            background: #d1fae5;
+            color: #059669;
+        }
+        
+        .status-disabled {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+        }
+        
+        .modal {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal h3 {
+            color: #1E1B4B;
+            margin-bottom: 20px;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 24px;
+        }
+        
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .stat-card h4 {
+            color: #64748b;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1E1B4B;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+        
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div class="login-container" id="login-screen">
+        <div class="login-box">
+            <h1>Admin Panel</h1>
+            <p>Church Web Global Management</p>
+            
+            <div class="error-message" id="login-error"></div>
+            
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="password">Admin Password</label>
+                    <input type="password" id="password" placeholder="Enter admin password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Login</button>
+            </form>
+            
+            <div id="setup-notice" style="margin-top: 20px; padding: 16px; background: #fef3c7; border-radius: 8px; display: none;">
+                <p style="color: #92400e; font-size: 14px;">No admin password set. Enter a new password to set up admin access.</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Admin Dashboard -->
+    <div class="admin-container" id="admin-dashboard">
+        <header class="admin-header">
+            <h1>Church Web Global Admin</h1>
+            <nav class="admin-nav">
+                <button class="active" data-section="dashboard">Dashboard</button>
+                <button data-section="templates">Templates</button>
+                <button data-section="settings">Settings</button>
+                <button class="logout-btn" id="logout-btn">Logout</button>
+            </nav>
+        </header>
+        
+        <div class="admin-content">
+            <!-- Dashboard Section -->
+            <div class="section active" id="section-dashboard">
+                <div class="section-header">
+                    <h2>Dashboard</h2>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h4>Active Templates</h4>
+                        <div class="value" id="stat-templates">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Sites Created</h4>
+                        <div class="value" id="stat-sites">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>API Status</h4>
+                        <div class="value" style="font-size: 18px;" id="stat-api">Checking...</div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Quick Actions</h3>
+                    </div>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <a href="/funnel" target="_blank" class="btn btn-primary">View Funnel</a>
+                        <a href="/" target="_blank" class="btn btn-secondary">View Homepage</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Templates Section -->
+            <div class="section" id="section-templates">
+                <div class="section-header">
+                    <h2>Template Management</h2>
+                    <button class="btn btn-primary" id="add-template-btn">+ Add Template</button>
+                </div>
+                
+                <div id="templates-list">
+                    <!-- Templates will be loaded here -->
+                </div>
+            </div>
+            
+            <!-- Settings Section -->
+            <div class="section" id="section-settings">
+                <div class="section-header">
+                    <h2>Settings</h2>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Change Admin Password</h3>
+                    </div>
+                    <form id="change-password-form">
+                        <div class="form-group">
+                            <label for="current-password">Current Password</label>
+                            <input type="password" id="current-password" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="new-password">New Password</label>
+                            <input type="password" id="new-password" required minlength="6">
+                        </div>
+                        <div class="form-group">
+                            <label for="confirm-password">Confirm New Password</label>
+                            <input type="password" id="confirm-password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Update Password</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add/Edit Template Modal -->
+    <div class="modal-overlay" id="template-modal">
+        <div class="modal">
+            <h3 id="modal-title">Add Template</h3>
+            <form id="template-form">
+                <input type="hidden" id="template-index" value="-1">
+                
+                <div class="form-group">
+                    <label for="template-id">Template ID (base_site_name) *</label>
+                    <input type="text" id="template-id" required placeholder="e.g., dde17a8d">
+                    <small style="color: #64748b;">Find this in your DUDA dashboard under Templates</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="template-name">Display Name *</label>
+                    <input type="text" id="template-name" required placeholder="e.g., Modern Church">
+                </div>
+                
+                <div class="form-group">
+                    <label for="template-description">Description</label>
+                    <input type="text" id="template-description" placeholder="e.g., Professional church website template">
+                </div>
+                
+                <div class="form-group">
+                    <label for="template-thumbnail">Custom Thumbnail URL (optional)</label>
+                    <input type="url" id="template-thumbnail" placeholder="https://example.com/thumbnail.png">
+                    <small style="color: #64748b;">Leave empty to use DUDA's auto-generated thumbnail</small>
+                </div>
+                
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="template-enabled" checked>
+                        <span>Enabled (visible in funnel)</span>
+                    </label>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Template</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script src="/admin.js"></script>
+</body>
+</html>
