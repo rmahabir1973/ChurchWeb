@@ -279,15 +279,32 @@ app.get('/api/templates', async (req, res) => {
 // Currently only the "Modern Church" template (dde17a8d) is approved for use
 const APPROVED_TEMPLATES = ['dde17a8d'];
 
+// Custom thumbnail overrides - map base_site_name to custom image URL
+// Add your own thumbnail URLs here to override DUDA's auto-generated ones
+const CUSTOM_THUMBNAILS = {
+  'dde17a8d': null  // Set to a URL like 'https://your-cdn.com/modern-church-thumb.png' to override
+};
+
 app.get('/api/templates/custom', async (req, res) => {
   try {
     const result = await callDudaAPI('GET', '/sites/multiscreen/templates');
     
     if (result.success && Array.isArray(result.data)) {
-      // Filter to only show approved templates
-      const customTemplates = result.data.filter(template => {
-        return APPROVED_TEMPLATES.includes(template.base_site_name);
-      });
+      // Filter to only show approved templates and apply custom thumbnails
+      const customTemplates = result.data
+        .filter(template => APPROVED_TEMPLATES.includes(template.base_site_name))
+        .map(template => {
+          // Override thumbnail if custom one is configured
+          const customThumb = CUSTOM_THUMBNAILS[template.base_site_name];
+          if (customThumb) {
+            return {
+              ...template,
+              thumbnail_url: customThumb,
+              desktop_thumbnail_url: customThumb
+            };
+          }
+          return template;
+        });
       
       res.json({ success: true, templates: customTemplates });
     } else {
