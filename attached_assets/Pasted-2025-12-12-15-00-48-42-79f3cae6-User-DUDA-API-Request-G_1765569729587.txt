@@ -1,0 +1,92 @@
+2025-12-12 15:00:48.42
+79f3cae6
+User
+DUDA API Request: GET https://api.duda.co/api/sites/multiscreen/templates
+2025-12-12 15:00:53.97
+a5435e0f
+System
+starting up user application
+2025-12-12 15:00:53.97
+a5435e0f
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2025-12-12 15:00:53.98
+a5435e0f
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2025-12-12 15:00:54.48
+a5435e0f
+User
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+2025-12-12 15:00:55.28
+a5435e0f
+User
+OpenAI AI Integration configured: Yes
+2025-12-12 15:00:55.29
+a5435e0f
+User
+DUDA API Endpoint configured: https://api.duda.co/api
+2025-12-12 15:00:55.29
+a5435e0f
+User
+DUDA MCP AI configured: Yes
+2025-12-12 15:00:55.29
+a5435e0f
+User
+WHMCS API configured: Yes
+2025-12-12 15:00:55.52
+a5435e0f
+User
+Database tables initialized
+2025-12-12 15:00:55.53
+a5435e0f
+User
+🔧 Environment: development
+2025-12-12 15:00:55.53
+a5435e0f
+User
+🚀 Church Web Global server running on port 5000
+2025-12-12 15:00:55.53
+a5435e0f
+User
+📍 Access at: http://localhost:5000
+2025-12-12 15:00:55.53
+a5435e0f
+User
+🤖 DUDA MCP AI: true
+2025-12-12 15:00:55.53
+a5435e0f
+User
+✅ DUDA API configured: true
+2025-12-12 15:00:55.53
+a5435e0f
+User
+🗄️ Database: PostgreSQL connected
+2025-12-12 15:00:55.53
+a5435e0f
+User
+💳 WHMCS API: true
+2025-12-12 15:01:30.30
+a5435e0f
+User
+Starting DUDA site/client import...
+2025-12-12 15:01:30.30
+a5435e0f
+User
+DUDA API Request: GET https://api.duda.co/api/sites/multiscreen
+2025-12-12 15:01:31.95
+a5435e0f
+User
+DUDA sites fetch: Got undefined sites
+2025-12-12 15:01:31.95
+a5435e0f
+User
+DUDA import error: TypeError: sites is not iterable
+2025-12-12 15:01:31.95
+a5435e0f
+User
+at /home/runner/workspace/church-web-global/server.js:2461:28
+2025-12-12 15:01:31.95
+a5435e0f
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)

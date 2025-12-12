@@ -2437,7 +2437,7 @@ app.post('/api/admin/import-duda-clients', requireAdmin, async (req, res) => {
         
         // Fetch all sites from DUDA (the accounts endpoint doesn't exist in Partner API)
         const sitesResult = await callDudaAPI('GET', '/sites/multiscreen');
-        console.log('DUDA sites fetch:', sitesResult.success ? `Got ${(sitesResult.data || []).length} sites` : sitesResult.error);
+        console.log('DUDA sites fetch raw:', JSON.stringify(sitesResult.data).substring(0, 500));
         
         if (!sitesResult.success) {
             console.error('DUDA API error details:', sitesResult.error);
@@ -2447,7 +2447,20 @@ app.post('/api/admin/import-duda-clients', requireAdmin, async (req, res) => {
             });
         }
         
-        const sites = sitesResult.data || [];
+        // Handle different response formats - could be array directly or object with sites property
+        let sites = [];
+        if (Array.isArray(sitesResult.data)) {
+            sites = sitesResult.data;
+        } else if (sitesResult.data?.results) {
+            sites = sitesResult.data.results;
+        } else if (sitesResult.data?.sites) {
+            sites = sitesResult.data.sites;
+        } else if (typeof sitesResult.data === 'object') {
+            // If it's an object with site_name keys, convert to array
+            sites = Object.values(sitesResult.data).filter(s => s && s.site_name);
+        }
+        
+        console.log(`DUDA sites fetch: Got ${sites.length} sites`);
         
         if (sites.length === 0) {
             return res.json({ success: true, message: 'No DUDA sites found to import', imported: 0, skipped: 0 });
