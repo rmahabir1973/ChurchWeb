@@ -2,6 +2,7 @@
 
 let isLoggedIn = false;
 let templates = [];
+let sessionId = localStorage.getItem('adminSession');
 
 // Check auth status on load
 document.addEventListener('DOMContentLoaded', async () => {
@@ -11,7 +12,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function checkAuthStatus() {
     try {
-        const response = await fetch('/api/admin/status');
+        const headers = sessionId ? { 'X-Admin-Session': sessionId } : {};
+        const response = await fetch('/api/admin/status', { headers });
         const data = await response.json();
         
         if (data.needsSetup) {
@@ -20,10 +22,23 @@ async function checkAuthStatus() {
         
         if (data.authenticated) {
             showDashboard();
+        } else {
+            // Clear invalid session
+            localStorage.removeItem('adminSession');
+            sessionId = null;
         }
     } catch (error) {
         console.error('Error checking auth status:', error);
     }
+}
+
+// Helper for authenticated requests
+function authFetch(url, options = {}) {
+    options.headers = options.headers || {};
+    if (sessionId) {
+        options.headers['X-Admin-Session'] = sessionId;
+    }
+    return fetch(url, options);
 }
 
 function setupEventListeners() {
@@ -67,6 +82,8 @@ async function handleLogin(e) {
         const data = await response.json();
         
         if (data.success) {
+            sessionId = data.sessionId;
+            localStorage.setItem('adminSession', sessionId);
             showDashboard();
         } else {
             errorDiv.textContent = data.error || 'Invalid password';
@@ -80,11 +97,13 @@ async function handleLogin(e) {
 
 async function handleLogout() {
     try {
-        await fetch('/api/admin/logout', { method: 'POST' });
+        await authFetch('/api/admin/logout', { method: 'POST' });
     } catch (error) {
         console.error('Logout error:', error);
     }
     
+    localStorage.removeItem('adminSession');
+    sessionId = null;
     isLoggedIn = false;
     document.getElementById('admin-dashboard').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';

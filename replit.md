@@ -100,6 +100,13 @@ church-web-global/
 ```
 
 ## Recent Changes
+- December 12, 2024: Added Admin Panel
+  - Backend admin panel at `/admin` with password protection
+  - Template management: add/edit/delete templates with custom thumbnails
+  - No more editing code to manage templates
+  - Config stored in `church-web-global/config/templates.json`
+  - First login sets the admin password
+
 - December 12, 2024: Integrated funnel with DUDA Collections
   - Added tagline and story fields to Step 2 form
   - Site creation now populates both Content Library AND Replit1 collection

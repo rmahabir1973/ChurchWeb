@@ -1484,8 +1484,8 @@ app.post('/api/admin/logout', (req, res) => {
     res.json({ success: true });
 });
 
-// Change admin password
-app.post('/api/admin/change-password', (req, res) => {
+// Change admin password - protected
+app.post('/api/admin/change-password', requireAdmin, (req, res) => {
     const { currentPassword, newPassword } = req.body;
     
     if (!currentPassword || !newPassword) {
@@ -1508,14 +1508,14 @@ app.post('/api/admin/change-password', (req, res) => {
     res.json({ success: true, message: 'Password updated' });
 });
 
-// Get all templates (admin)
-app.get('/api/admin/templates', (req, res) => {
+// Get all templates (admin) - protected
+app.get('/api/admin/templates', requireAdmin, (req, res) => {
     const templatesConfig = loadConfig(TEMPLATES_CONFIG, { approved_templates: [] });
     res.json({ success: true, templates: templatesConfig.approved_templates });
 });
 
-// Add template (admin)
-app.post('/api/admin/templates', (req, res) => {
+// Add template (admin) - protected
+app.post('/api/admin/templates', requireAdmin, (req, res) => {
     const { base_site_name, name, description, custom_thumbnail, enabled } = req.body;
     
     if (!base_site_name || !name) {
@@ -1542,8 +1542,8 @@ app.post('/api/admin/templates', (req, res) => {
     res.json({ success: true, message: 'Template added' });
 });
 
-// Update template (admin)
-app.put('/api/admin/templates/:index', (req, res) => {
+// Update template (admin) - protected
+app.put('/api/admin/templates/:index', requireAdmin, (req, res) => {
     const index = parseInt(req.params.index);
     const { base_site_name, name, description, custom_thumbnail, enabled } = req.body;
     
@@ -1565,8 +1565,8 @@ app.put('/api/admin/templates/:index', (req, res) => {
     res.json({ success: true, message: 'Template updated' });
 });
 
-// Delete template (admin)
-app.delete('/api/admin/templates/:index', (req, res) => {
+// Delete template (admin) - protected
+app.delete('/api/admin/templates/:index', requireAdmin, (req, res) => {
     const index = parseInt(req.params.index);
     
     const templatesConfig = loadConfig(TEMPLATES_CONFIG, { approved_templates: [] });
