@@ -71,12 +71,11 @@ church-web-global/
    - Full footer with links
    - Scroll animations and smooth scrolling
    
-2. **Website Builder Funnel** - 5-step process:
+2. **Website Builder Funnel** - 4-step process:
    - Step 1: Choose Template (custom church templates only)
    - Step 2: Church Info (collect church details)
-   - Step 3: Select Pages (AI-powered suggestions)
-   - Step 4: Preview (view unpublished site)
-   - Step 5: Sign Up (create account, select plan - no auto-publish)
+   - Step 3: Preview (view unpublished site with Content Library populated)
+   - Step 4: Sign Up (create account, select plan - no auto-publish)
 
 3. **DUDA Integration** - Creates and manages church websites via DUDA API
 4. **DUDA MCP AI** - AI-powered page and content suggestions
@@ -100,6 +99,12 @@ church-web-global/
 ```
 
 ## Recent Changes
+- December 12, 2024: Simplified funnel from 5 steps to 4 steps
+  - Removed Step 3 (Select Pages) as it was non-functional
+  - Template pages can't be modified via API without complex Page API calls
+  - Funnel now: Template → Church Info → Preview → Sign Up
+  - Content still populates via Content Library and Replit1 collection
+
 - December 12, 2024: Added Admin Panel
   - Backend admin panel at `/admin` with password protection
   - Template management: add/edit/delete templates with custom thumbnails

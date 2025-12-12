@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="funnel-page">
-    <!-- Progress Bar - 5 Steps -->
+    <!-- Progress Bar - 4 Steps -->
     <div class="progress-container">
         <div class="container">
             <div class="progress-bar">
@@ -26,16 +26,11 @@
                 <div class="progress-line"></div>
                 <div class="progress-step" data-step="3">
                     <div class="progress-circle">3</div>
-                    <span>Select Pages</span>
+                    <span>Preview</span>
                 </div>
                 <div class="progress-line"></div>
                 <div class="progress-step" data-step="4">
                     <div class="progress-circle">4</div>
-                    <span>Preview</span>
-                </div>
-                <div class="progress-line"></div>
-                <div class="progress-step" data-step="5">
-                    <div class="progress-circle">5</div>
                     <span>Sign Up</span>
                 </div>
             </div>
@@ -144,38 +139,12 @@
 
                 <div class="step-actions">
                     <button id="step2-back" class="btn btn-secondary">Back</button>
-                    <button id="step2-next" class="btn btn-primary">Get Page Suggestions</button>
+                    <button id="step2-next" class="btn btn-primary">Create Preview</button>
                 </div>
             </div>
 
-            <!-- Step 3: Select Pages (AI Suggestions) -->
+            <!-- Step 3: Preview Site -->
             <div class="funnel-step" id="step3">
-                <div class="step-header">
-                    <h2>Select Your Website Pages</h2>
-                    <p>We recommend these pages based on your church information</p>
-                </div>
-
-                <div id="ai-loading" class="loading" style="display: none;">
-                    <div class="spinner"></div>
-                    <p>Getting smart page suggestions...</p>
-                </div>
-
-                <div id="pages-container">
-                    <h4 class="section-label">Recommended Pages</h4>
-                    <div id="suggested-pages" class="pages-grid"></div>
-                    
-                    <h4 class="section-label" style="margin-top: 24px;">Additional Pages</h4>
-                    <div id="optional-pages" class="pages-grid"></div>
-                </div>
-
-                <div class="step-actions">
-                    <button id="step3-back" class="btn btn-secondary">Back</button>
-                    <button id="step3-next" class="btn btn-primary">Create Preview</button>
-                </div>
-            </div>
-
-            <!-- Step 4: Preview Site -->
-            <div class="funnel-step" id="step4">
                 <div class="step-header">
                     <h2>Preview Your Website</h2>
                     <p>See how your new church website looks before signing up</p>
@@ -204,13 +173,13 @@
                 </div>
 
                 <div class="step-actions">
-                    <button id="step4-back" class="btn btn-secondary">Back</button>
-                    <button id="step4-next" class="btn btn-primary">Continue to Sign Up</button>
+                    <button id="step3-back" class="btn btn-secondary">Back</button>
+                    <button id="step3-next" class="btn btn-primary">Continue to Sign Up</button>
                 </div>
             </div>
 
-            <!-- Step 5: Sign Up & Plan Selection -->
-            <div class="funnel-step" id="step5">
+            <!-- Step 4: Sign Up & Plan Selection -->
+            <div class="funnel-step" id="step4">
                 <div class="step-header">
                     <h2>Choose Your Plan</h2>
                     <p>Select a plan and create your account to launch your website</p>
@@ -288,8 +257,8 @@
                 </div>
 
                 <div class="step-actions">
-                    <button id="step5-back" class="btn btn-secondary">Back</button>
-                    <button id="step5-finish" class="btn btn-primary btn-large">Create Account & Pay</button>
+                    <button id="step4-back" class="btn btn-secondary">Back</button>
+                    <button id="step4-finish" class="btn btn-primary btn-large">Create Account & Pay</button>
                 </div>
             </div>
 

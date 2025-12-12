@@ -1,13 +1,10 @@
-// app.js - Frontend JavaScript for Church Web Global 5-Step Funnel
+// app.js - Frontend JavaScript for Church Web Global 4-Step Funnel
 
 const state = {
     currentStep: 1,
-    totalSteps: 5,
+    totalSteps: 4,
     selectedTemplate: null,
     churchInfo: {},
-    suggestedPages: [],
-    selectedPages: [],
-    pageContent: {},
     createdSite: null,
     previewUrl: null
 };
@@ -30,13 +27,10 @@ function setupAllListeners() {
     document.getElementById('step2-next')?.addEventListener('click', handleStep2Submit);
     
     document.getElementById('step3-back')?.addEventListener('click', () => goToStep(2));
-    document.getElementById('step3-next')?.addEventListener('click', handleStep3Submit);
+    document.getElementById('step3-next')?.addEventListener('click', () => goToStep(4));
     
     document.getElementById('step4-back')?.addEventListener('click', () => goToStep(3));
-    document.getElementById('step4-next')?.addEventListener('click', () => goToStep(5));
-    
-    document.getElementById('step5-back')?.addEventListener('click', () => goToStep(4));
-    document.getElementById('step5-finish')?.addEventListener('click', handleSignup);
+    document.getElementById('step4-finish')?.addEventListener('click', handleSignup);
 }
 
 async function loadTemplates() {
@@ -129,183 +123,6 @@ async function handleStep2Submit() {
     };
 
     goToStep(3);
-    await loadPageSuggestions();
-}
-
-async function loadPageSuggestions() {
-    const loading = document.getElementById('ai-loading');
-    const container = document.getElementById('pages-container');
-    
-    loading.style.display = 'block';
-    container.style.display = 'none';
-
-    try {
-        const response = await fetch('/api/ai/suggest-pages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(state.churchInfo)
-        });
-        const data = await response.json();
-
-        loading.style.display = 'none';
-        container.style.display = 'block';
-
-        if (data.success && data.suggestions) {
-            state.suggestedPages = data.suggestions;
-            renderPageSuggestions(data.suggestions);
-        } else {
-            renderDefaultPages();
-        }
-    } catch (error) {
-        console.error('Error getting suggestions:', error);
-        loading.style.display = 'none';
-        container.style.display = 'block';
-        renderDefaultPages();
-    }
-}
-
-function renderPageSuggestions(pages) {
-    const suggestedGrid = document.getElementById('suggested-pages');
-    const optionalGrid = document.getElementById('optional-pages');
-    
-    suggestedGrid.innerHTML = '';
-    optionalGrid.innerHTML = '';
-
-    const recommended = pages.filter(p => p.priority <= 2 || p.required);
-    const optional = pages.filter(p => p.priority > 2 && !p.required);
-
-    recommended.forEach(page => {
-        suggestedGrid.appendChild(createPageCard(page, true));
-    });
-
-    optional.forEach(page => {
-        optionalGrid.appendChild(createPageCard(page, false));
-    });
-}
-
-function renderDefaultPages() {
-    const defaultPages = [
-        { name: 'Home', slug: 'home', description: 'Welcome page', priority: 1, required: true },
-        { name: 'About Us', slug: 'about', description: 'Church story and mission', priority: 2 },
-        { name: 'Services', slug: 'services', description: 'Service times', priority: 2 },
-        { name: 'Contact', slug: 'contact', description: 'Contact information', priority: 2 },
-        { name: 'Ministries', slug: 'ministries', description: 'Ministry programs', priority: 3 },
-        { name: 'Sermons', slug: 'sermons', description: 'Past messages', priority: 3 },
-        { name: 'Events', slug: 'events', description: 'Upcoming events', priority: 3 },
-        { name: 'Give', slug: 'give', description: 'Online giving', priority: 4 }
-    ];
-    state.suggestedPages = defaultPages;
-    renderPageSuggestions(defaultPages);
-}
-
-function createPageCard(page, checked) {
-    const div = document.createElement('div');
-    div.className = 'page-card-wrapper';
-    
-    const icons = {
-        home: '🏠', about: 'ℹ️', services: '⛪', contact: '📧',
-        ministries: '🙏', sermons: '🎤', events: '📅', give: '💝',
-        connect: '🤝', prayer: '🙏', blog: '📝'
-    };
-
-    div.innerHTML = `
-        <label class="page-checkbox">
-            <input type="checkbox" name="page" value="${page.slug}" ${checked ? 'checked' : ''} ${page.required ? 'disabled checked' : ''} onchange="togglePageContent('${page.slug}', this.checked)">
-            <div class="checkbox-card">
-                <span class="page-icon">${icons[page.slug] || '📄'}</span>
-                <h4>${page.name}</h4>
-                <p>${page.description}</p>
-                ${page.required ? '<span class="required-badge">Required</span>' : ''}
-            </div>
-        </label>
-        <div class="page-content-section" id="content-${page.slug}" style="display: ${checked ? 'block' : 'none'};">
-            <div class="content-header">
-                <span>Page Content (Optional)</span>
-                <button type="button" class="btn-ai-generate" onclick="generatePageContent('${page.slug}', '${page.name}')">
-                    <span class="ai-icon">✨</span> Generate with AI
-                </button>
-            </div>
-            <textarea 
-                id="textarea-${page.slug}" 
-                class="page-content-textarea" 
-                placeholder="Add content for your ${page.name} page, or click 'Generate with AI' to get started..."
-                rows="4"
-            ></textarea>
-            <div class="ai-generating" id="generating-${page.slug}" style="display: none;">
-                <span class="spinner-small"></span> Generating content...
-            </div>
-        </div>
-    `;
-
-    return div;
-}
-
-function togglePageContent(slug, isChecked) {
-    const contentSection = document.getElementById(`content-${slug}`);
-    if (contentSection) {
-        contentSection.style.display = isChecked ? 'block' : 'none';
-    }
-}
-
-async function generatePageContent(slug, pageName) {
-    const textarea = document.getElementById(`textarea-${slug}`);
-    const generating = document.getElementById(`generating-${slug}`);
-    const btn = document.querySelector(`#content-${slug} .btn-ai-generate`);
-    
-    if (!textarea) return;
-    
-    btn.disabled = true;
-    generating.style.display = 'flex';
-    
-    try {
-        const response = await fetch('/api/ai/generate-content', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                pageName: slug,
-                churchInfo: state.churchInfo
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success && data.content) {
-            textarea.value = data.content;
-            state.pageContent = state.pageContent || {};
-            state.pageContent[slug] = data.content;
-        } else {
-            alert('Could not generate content. Please try again or write your own.');
-        }
-    } catch (error) {
-        console.error('AI generation error:', error);
-        alert('Error generating content. Please try again.');
-    } finally {
-        btn.disabled = false;
-        generating.style.display = 'none';
-    }
-}
-
-// Store content when user types
-document.addEventListener('input', (e) => {
-    if (e.target.classList.contains('page-content-textarea')) {
-        const slug = e.target.id.replace('textarea-', '');
-        state.pageContent = state.pageContent || {};
-        state.pageContent[slug] = e.target.value;
-    }
-});
-
-async function handleStep3Submit() {
-    const checkboxes = document.querySelectorAll('input[name="page"]:checked');
-    state.selectedPages = Array.from(checkboxes).map(cb => {
-        const pageInfo = state.suggestedPages.find(p => p.slug === cb.value);
-        const content = state.pageContent?.[cb.value] || '';
-        return { 
-            ...(pageInfo || { slug: cb.value, name: cb.value }),
-            content: content
-        };
-    });
-
-    goToStep(4);
     await createSitePreview();
 }
 
@@ -334,7 +151,6 @@ async function createSitePreview() {
             body: JSON.stringify({
                 templateId: state.selectedTemplate.template_id || state.selectedTemplate.id,
                 churchInfo: state.churchInfo,
-                pages: state.selectedPages,
                 collectionData: collectionData
             })
         });
@@ -405,7 +221,7 @@ async function handleSignup() {
         lastName: state.churchInfo.contactName?.split(' ').slice(1).join(' ') || 'Church'
     };
 
-    const finishBtn = document.getElementById('step5-finish');
+    const finishBtn = document.getElementById('step4-finish');
     finishBtn.disabled = true;
     finishBtn.textContent = 'Creating Account...';
 
