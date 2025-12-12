@@ -110,8 +110,10 @@ church-web-global/
   - Updated button text to "Start My Free Trial"
   - Clearer messaging about no payment required to start
 
-- December 12, 2024: Improved DUDA Client Import
-  - Added pagination support for fetching accounts
+- December 12, 2024: Fixed DUDA Client Import (Full Pagination)
+  - Added proper pagination with offset/limit loop to fetch ALL sites (not just first 50)
+  - Now fetches preview URLs (preview_site_url, site_domain, or canonical_url)
+  - Better church name extraction from site_business_info.business_name
   - Better error messages showing actual API errors
   - Detailed server logging during import
 

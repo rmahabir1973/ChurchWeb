@@ -2433,34 +2433,56 @@ app.post('/api/client/open-editor', requirePortalSession, async (req, res) => {
 // Import all existing sites from DUDA (and create clients from site owners)
 app.post('/api/admin/import-duda-clients', requireAdmin, async (req, res) => {
     try {
-        console.log('Starting DUDA site/client import...');
+        console.log('Starting DUDA site/client import with pagination...');
         
-        // Fetch all sites from DUDA (the accounts endpoint doesn't exist in Partner API)
-        const sitesResult = await callDudaAPI('GET', '/sites/multiscreen');
-        console.log('DUDA sites fetch raw:', JSON.stringify(sitesResult.data).substring(0, 500));
+        // Fetch all sites from DUDA with pagination
+        let allSites = [];
+        let offset = 0;
+        const limit = 50;
+        let hasMore = true;
         
-        if (!sitesResult.success) {
-            console.error('DUDA API error details:', sitesResult.error);
-            return res.status(500).json({ 
-                success: false, 
-                error: `Failed to fetch DUDA sites: ${sitesResult.error || 'Unknown error'}` 
-            });
+        while (hasMore) {
+            console.log(`Fetching DUDA sites: offset=${offset}, limit=${limit}`);
+            const sitesResult = await callDudaAPI('GET', `/sites/multiscreen?offset=${offset}&limit=${limit}`);
+            
+            if (!sitesResult.success) {
+                console.error('DUDA API error details:', sitesResult.error);
+                if (allSites.length === 0) {
+                    return res.status(500).json({ 
+                        success: false, 
+                        error: `Failed to fetch DUDA sites: ${sitesResult.error || 'Unknown error'}` 
+                    });
+                }
+                // If we have some sites, continue with what we have
+                hasMore = false;
+                continue;
+            }
+            
+            // Handle different response formats
+            let sites = [];
+            if (Array.isArray(sitesResult.data)) {
+                sites = sitesResult.data;
+            } else if (sitesResult.data?.results) {
+                sites = sitesResult.data.results;
+            } else if (sitesResult.data?.sites) {
+                sites = sitesResult.data.sites;
+            } else if (typeof sitesResult.data === 'object') {
+                sites = Object.values(sitesResult.data).filter(s => s && s.site_name);
+            }
+            
+            console.log(`Fetched ${sites.length} sites in this batch`);
+            allSites = allSites.concat(sites);
+            
+            // Check if we should fetch more
+            if (sites.length < limit) {
+                hasMore = false;
+            } else {
+                offset += limit;
+            }
         }
         
-        // Handle different response formats - could be array directly or object with sites property
-        let sites = [];
-        if (Array.isArray(sitesResult.data)) {
-            sites = sitesResult.data;
-        } else if (sitesResult.data?.results) {
-            sites = sitesResult.data.results;
-        } else if (sitesResult.data?.sites) {
-            sites = sitesResult.data.sites;
-        } else if (typeof sitesResult.data === 'object') {
-            // If it's an object with site_name keys, convert to array
-            sites = Object.values(sitesResult.data).filter(s => s && s.site_name);
-        }
-        
-        console.log(`DUDA sites fetch: Got ${sites.length} sites`);
+        const sites = allSites;
+        console.log(`DUDA sites fetch complete: Got ${sites.length} total sites`);
         
         if (sites.length === 0) {
             return res.json({ success: true, message: 'No DUDA sites found to import', imported: 0, skipped: 0 });
@@ -2484,11 +2506,20 @@ app.post('/api/admin/import-duda-clients', requireAdmin, async (req, res) => {
                     continue;
                 }
                 
-                // Get detailed site info including owner
+                // Get detailed site info including owner and preview URL
                 const siteDetails = await callDudaAPI('GET', `/sites/multiscreen/${siteName}`);
                 const businessName = siteDetails.data?.site_business_info?.business_name || 
                                      siteDetails.data?.site_name || siteName;
                 const ownerEmail = siteDetails.data?.account_name || null;
+                
+                // Get preview URL - try preview_site_url first, then construct from site_domain
+                let previewUrl = siteDetails.data?.preview_site_url || null;
+                if (!previewUrl && siteDetails.data?.site_domain) {
+                    previewUrl = `https://${siteDetails.data.site_domain}`;
+                }
+                if (!previewUrl && siteDetails.data?.canonical_url) {
+                    previewUrl = siteDetails.data.canonical_url;
+                }
                 
                 let clientId = null;
                 
@@ -2510,11 +2541,11 @@ app.post('/api/admin/import-duda-clients', requireAdmin, async (req, res) => {
                     }
                 }
                 
-                // Import the site
+                // Import the site with preview URL
                 await dbQuery(
-                    `INSERT INTO sites (site_name, client_id, church_name, is_published)
-                     VALUES ($1, $2, $3, $4)`,
-                    [siteName, clientId, businessName, true]
+                    `INSERT INTO sites (site_name, client_id, church_name, preview_url, is_published)
+                     VALUES ($1, $2, $3, $4, $5)`,
+                    [siteName, clientId, businessName, previewUrl, true]
                 );
                 
                 sitesImported++;
