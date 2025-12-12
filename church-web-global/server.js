@@ -2587,6 +2587,53 @@ app.post('/api/admin/import-duda-clients', requireAdmin, async (req, res) => {
     }
 });
 
+// Admin: Generate SSO editor link for any site
+app.get('/api/admin/site-editor-link/:siteName', requireAdmin, async (req, res) => {
+    try {
+        const { siteName } = req.params;
+        
+        if (!siteName) {
+            return res.status(400).json({ success: false, error: 'Site name is required' });
+        }
+        
+        // Get site details to find the owner email
+        const siteDetails = await callDudaAPI('GET', `/sites/multiscreen/${siteName}`);
+        
+        if (!siteDetails.success) {
+            return res.status(404).json({ success: false, error: 'Site not found in DUDA' });
+        }
+        
+        const ownerEmail = siteDetails.data?.account_name;
+        
+        if (!ownerEmail) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'No account associated with this site. Cannot generate editor link.' 
+            });
+        }
+        
+        // Generate SSO link to the editor
+        console.log(`Admin generating SSO link for: ${ownerEmail} -> ${siteName}`);
+        const ssoResult = await callDudaAPI('GET', `/accounts/sso/${encodeURIComponent(ownerEmail)}/link?site_name=${siteName}&target=EDITOR`);
+        
+        if (!ssoResult.success || !ssoResult.data?.url) {
+            console.error('SSO link generation failed:', ssoResult.error);
+            return res.status(500).json({ success: false, error: 'Failed to generate editor link' });
+        }
+        
+        res.json({
+            success: true,
+            editorUrl: ssoResult.data.url,
+            siteName: siteName,
+            accountEmail: ownerEmail
+        });
+        
+    } catch (error) {
+        console.error('Admin editor link error:', error);
+        res.status(500).json({ success: false, error: 'Failed to generate editor link' });
+    }
+});
+
 // Get all clients (admin) with pagination and search
 app.get('/api/admin/clients', requireAdmin, async (req, res) => {
     try {

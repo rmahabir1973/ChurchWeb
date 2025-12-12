@@ -304,7 +304,8 @@ function renderSites() {
             <td><span class="status-badge ${site.is_published ? 'status-active' : 'status-trial'}">${site.is_published ? 'Published' : 'Unpublished'}</span></td>
             <td>${formatDate(site.created_at)}</td>
             <td>
-                <button class="btn btn-sm btn-secondary" onclick="previewSite('${site.site_name}')">Preview</button>
+                <button class="btn btn-sm btn-primary" onclick="editSite('${site.site_name}')" title="Open DUDA Editor">Edit</button>
+                <button class="btn btn-sm btn-secondary" onclick="previewSite('${site.site_name}', '${site.preview_url || ''}')" title="View live site">Preview</button>
             </td>
         </tr>
     `).join('');
@@ -725,8 +726,31 @@ function viewClient(email) {
     loadClients(1);
 }
 
-function previewSite(siteName) {
-    window.open(`https://${siteName}.duda.dev`, '_blank');
+function previewSite(siteName, previewUrl) {
+    // Use the stored preview URL if available, otherwise try common patterns
+    if (previewUrl && previewUrl !== 'null' && previewUrl !== 'undefined') {
+        window.open(previewUrl, '_blank');
+    } else {
+        // Fallback to DUDA preview (may not work for all sites)
+        alert('No live URL found for this site. The site may not be published yet.');
+    }
+}
+
+async function editSite(siteName) {
+    // Generate SSO link to open DUDA editor
+    try {
+        const response = await authFetch(`/api/admin/site-editor-link/${siteName}`);
+        const data = await response.json();
+        
+        if (data.success && data.editorUrl) {
+            window.open(data.editorUrl, '_blank');
+        } else {
+            alert(data.error || 'Failed to generate editor link');
+        }
+    } catch (error) {
+        console.error('Error getting editor link:', error);
+        alert('Failed to generate editor link. Please try again.');
+    }
 }
 
 function openExtendTrialModal(email, siteName, currentExpiry) {
