@@ -168,7 +168,11 @@
                         <div class="preview-frame-container">
                             <iframe id="preview-iframe" src="" frameborder="0"></iframe>
                         </div>
-                        <p class="preview-note">Click "Customize in Editor" to change text, images, and design. Sign up when ready to launch!</p>
+                        <div id="trial-banner" class="trial-banner" style="display: none;">
+                            <span class="trial-icon">🎉</span>
+                            <span class="trial-text">Your <strong>14-day free trial</strong> has started! Edit as much as you want. Upgrade to publish.</span>
+                        </div>
+                        <p class="preview-note">Click "Customize in Editor" to change text, images, and design. Your site won't go live until you upgrade to a paid plan.</p>
                     </div>
                 </div>
 
@@ -271,8 +275,12 @@
                     <div id="success-details" style="background: #f8f9fa; padding: 24px; border-radius: 12px; margin-bottom: 32px; text-align: left; max-width: 500px; margin-left: auto; margin-right: auto;">
                         <p><strong>Site:</strong> <span id="success-site-name"></span></p>
                         <p><strong>Plan:</strong> <span id="success-plan"></span></p>
+                        <p><strong>Trial Status:</strong> <span id="trial-days-remaining" style="color: #6B46C1; font-weight: 600;">14 days remaining</span></p>
                         <p><strong>Payment Status:</strong> <span id="payment-status" class="payment-status pending">Checking...</span></p>
                         <a href="#" id="live-site-url" style="display: none; word-break: break-all;"></a>
+                    </div>
+                    <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 24px;">
+                        <button id="open-editor-btn" class="btn btn-secondary" style="padding: 14px 32px;">Continue Editing</button>
                     </div>
                     <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
                         <button id="publish-site-btn" class="btn btn-primary" disabled style="padding: 14px 32px;">Waiting for Payment...</button>

@@ -173,7 +173,7 @@ async function createSitePreview() {
     }
 }
 
-function displayPreview(data) {
+async function displayPreview(data) {
     const section = document.getElementById('preview-section');
     const siteName = document.getElementById('preview-site-name');
     const previewLink = document.getElementById('preview-link');
@@ -183,12 +183,6 @@ function displayPreview(data) {
     siteName.textContent = state.churchInfo.churchName;
     previewLink.href = data.previewUrl || '#';
     
-    if (data.editorUrl) {
-        editorLink.href = data.editorUrl;
-        editorLink.style.display = 'inline-block';
-        state.editorUrl = data.editorUrl;
-    }
-    
     if (data.previewUrl) {
         iframe.src = data.previewUrl;
     }
@@ -196,6 +190,54 @@ function displayPreview(data) {
     section.style.display = 'block';
     
     document.getElementById('signup-email').value = state.churchInfo.email;
+    
+    // Start free trial automatically
+    if (state.createdSite?.site_name && state.churchInfo.email) {
+        try {
+            const trialResponse = await fetch('/api/trial/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: state.churchInfo.email,
+                    siteName: state.createdSite.site_name,
+                    churchName: state.churchInfo.churchName
+                })
+            });
+            const trialData = await trialResponse.json();
+            
+            if (trialData.success) {
+                state.trial = trialData.trial;
+                console.log('Trial started:', trialData.message);
+                
+                // Show trial banner
+                const trialBanner = document.getElementById('trial-banner');
+                if (trialBanner) {
+                    trialBanner.style.display = 'flex';
+                }
+                
+                // Get SSO editor link
+                const editorResponse = await fetch('/api/trial/editor-link', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: state.churchInfo.email,
+                        siteName: state.createdSite.site_name
+                    })
+                });
+                const editorData = await editorResponse.json();
+                
+                if (editorData.success && editorData.editorUrl) {
+                    editorLink.href = editorData.editorUrl;
+                    editorLink.style.display = 'inline-block';
+                    editorLink.textContent = 'Customize in Editor';
+                    state.editorUrl = editorData.editorUrl;
+                }
+            }
+        } catch (error) {
+            console.log('Trial setup note:', error.message);
+            // Continue without trial - they can still preview
+        }
+    }
 }
 
 async function handleSignup() {
@@ -258,6 +300,20 @@ function showSuccess(plan, signupData = {}) {
     
     document.getElementById('success-site-name').textContent = state.churchInfo.churchName;
     document.getElementById('success-plan').textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
+    
+    // Show trial days remaining
+    const trialDaysEl = document.getElementById('trial-days-remaining');
+    if (trialDaysEl && state.trial) {
+        trialDaysEl.textContent = `${state.trial.daysRemaining || 14} days remaining`;
+    }
+    
+    // Setup "Continue Editing" button
+    const openEditorBtn = document.getElementById('open-editor-btn');
+    if (openEditorBtn && state.editorUrl) {
+        openEditorBtn.onclick = () => window.open(state.editorUrl, '_blank');
+    } else if (openEditorBtn) {
+        openEditorBtn.style.display = 'none';
+    }
     
     document.querySelector('.progress-container').style.display = 'none';
     

@@ -99,6 +99,13 @@ church-web-global/
 ```
 
 ## Recent Changes
+- December 12, 2024: Added 14-Day Free Trial with DUDA SSO
+  - Users get 14-day free trial with EDIT access (no PUBLISH)
+  - SSO integration - users edit directly in white-labeled DUDA editor
+  - Trial tracking stored in config/trials.json
+  - Upgrade flow grants PUBLISH permission after payment
+  - New API endpoints: /api/trial/start, /api/trial/editor-link, /api/trial/status, /api/trial/upgrade
+
 - December 12, 2024: Simplified funnel from 5 steps to 4 steps
   - Removed Step 3 (Select Pages) as it was non-functional
   - Template pages can't be modified via API without complex Page API calls

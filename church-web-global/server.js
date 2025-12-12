@@ -12,6 +12,7 @@ const OpenAI = require('openai');
 const CONFIG_DIR = path.join(__dirname, 'config');
 const TEMPLATES_CONFIG = path.join(CONFIG_DIR, 'templates.json');
 const ADMIN_CONFIG = path.join(CONFIG_DIR, 'admin.json');
+const TRIALS_CONFIG = path.join(CONFIG_DIR, 'trials.json');
 
 // Ensure config directory exists
 if (!fs.existsSync(CONFIG_DIR)) {
@@ -1580,6 +1581,300 @@ app.delete('/api/admin/templates/:index', requireAdmin, (req, res) => {
     
     res.json({ success: true, message: 'Template deleted' });
 });
+
+// ============================================
+// DUDA SSO & FREE TRIAL MANAGEMENT
+// ============================================
+
+const TRIAL_DAYS = 14;
+
+// Helper: Get trial info for a user and site
+function getTrialInfo(email, siteName = null) {
+    const trials = loadConfig(TRIALS_CONFIG, { trials: [] });
+    if (siteName) {
+        return trials.trials.find(t => 
+            t.email.toLowerCase() === email.toLowerCase() && 
+            t.siteName === siteName
+        );
+    }
+    // Return most recent trial for email if no siteName specified
+    return trials.trials
+        .filter(t => t.email.toLowerCase() === email.toLowerCase())
+        .sort((a, b) => new Date(b.trialStart) - new Date(a.trialStart))[0];
+}
+
+// Helper: Save trial info (keyed by email + siteName)
+function saveTrialInfo(trialData) {
+    const trials = loadConfig(TRIALS_CONFIG, { trials: [] });
+    const existingIndex = trials.trials.findIndex(t => 
+        t.email.toLowerCase() === trialData.email.toLowerCase() &&
+        t.siteName === trialData.siteName
+    );
+    
+    if (existingIndex >= 0) {
+        trials.trials[existingIndex] = { ...trials.trials[existingIndex], ...trialData };
+    } else {
+        trials.trials.push(trialData);
+    }
+    
+    saveConfig(TRIALS_CONFIG, trials);
+    return trialData;
+}
+
+// Helper: Check if trial is expired
+function isTrialExpired(trial) {
+    if (!trial || !trial.trialExpiry) return true;
+    return new Date() > new Date(trial.trialExpiry);
+}
+
+// Helper: Calculate days remaining
+function getTrialDaysRemaining(trial) {
+    if (!trial || !trial.trialExpiry) return 0;
+    const now = new Date();
+    const expiry = new Date(trial.trialExpiry);
+    const diff = expiry - now;
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
+// Create DUDA account and grant trial permissions
+app.post('/api/trial/start', async (req, res) => {
+    try {
+        const { email, siteName, churchName } = req.body;
+        
+        if (!email || !siteName) {
+            return res.status(400).json({ success: false, error: 'Email and site name are required' });
+        }
+        
+        // Check if trial already exists for this email + site combination
+        let trial = getTrialInfo(email, siteName);
+        
+        if (trial) {
+            // Return existing trial info
+            const daysRemaining = getTrialDaysRemaining(trial);
+            return res.json({
+                success: true,
+                trial: {
+                    ...trial,
+                    daysRemaining,
+                    isExpired: isTrialExpired(trial)
+                },
+                message: 'Trial already active'
+            });
+        }
+        
+        // Create DUDA account for the user
+        console.log(`Creating DUDA account for: ${email}`);
+        const accountResult = await callDudaAPI('POST', '/accounts/create', {
+            account_name: email
+        });
+        
+        // Account might already exist (which is fine)
+        if (!accountResult.success && !accountResult.error?.message?.includes('already exists')) {
+            console.log('DUDA account creation result:', accountResult);
+        }
+        
+        // Grant EDIT-only permissions (no PUBLISH during trial)
+        console.log(`Granting trial permissions for site: ${siteName}`);
+        const permissionsResult = await callDudaAPI('POST', `/accounts/${encodeURIComponent(email)}/sites/${siteName}/permissions`, {
+            permissions: ['EDIT', 'DEV_MODE', 'STATS_TAB', 'SEO', 'BLOG']
+            // Note: PUBLISH is NOT included - they can only publish after paying
+        });
+        
+        if (!permissionsResult.success) {
+            console.error('Permission grant failed:', permissionsResult.error);
+        }
+        
+        // Save trial info
+        const trialStart = new Date();
+        const trialExpiry = new Date(trialStart);
+        trialExpiry.setDate(trialExpiry.getDate() + TRIAL_DAYS);
+        
+        trial = saveTrialInfo({
+            email: email.toLowerCase(),
+            siteName,
+            churchName: churchName || '',
+            trialStart: trialStart.toISOString(),
+            trialExpiry: trialExpiry.toISOString(),
+            hasPaid: false,
+            hasPublishAccess: false
+        });
+        
+        res.json({
+            success: true,
+            trial: {
+                ...trial,
+                daysRemaining: TRIAL_DAYS,
+                isExpired: false
+            },
+            message: `${TRIAL_DAYS}-day free trial started! You can edit your site but publishing requires a paid plan.`
+        });
+        
+    } catch (error) {
+        console.error('Trial start error:', error);
+        res.status(500).json({ success: false, error: 'Failed to start trial' });
+    }
+});
+
+// Generate SSO link for editor access
+app.post('/api/trial/editor-link', async (req, res) => {
+    try {
+        const { email, siteName } = req.body;
+        
+        if (!email || !siteName) {
+            return res.status(400).json({ success: false, error: 'Email and site name are required' });
+        }
+        
+        // Check trial status
+        const trial = getTrialInfo(email, siteName);
+        if (!trial) {
+            return res.status(404).json({ success: false, error: 'No trial found. Please start a trial first.' });
+        }
+        
+        if (isTrialExpired(trial) && !trial.hasPaid) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'Trial expired. Please upgrade to continue editing.',
+                trialExpired: true
+            });
+        }
+        
+        // Ensure permissions are set (in case returning user)
+        console.log(`Ensuring permissions for: ${email} -> ${siteName}`);
+        await callDudaAPI('POST', `/accounts/${encodeURIComponent(email)}/sites/${siteName}/permissions`, {
+            permissions: trial.hasPaid 
+                ? ['EDIT', 'PUBLISH', 'DEV_MODE', 'STATS_TAB', 'SEO', 'BLOG', 'CUSTOM_DOMAIN', 'BACKUPS']
+                : ['EDIT', 'DEV_MODE', 'STATS_TAB', 'SEO', 'BLOG']
+        });
+        
+        // Generate SSO link to the editor
+        console.log(`Generating SSO link for: ${email} -> ${siteName}`);
+        const ssoResult = await callDudaAPI('GET', `/accounts/sso/${encodeURIComponent(email)}/link?site_name=${siteName}&target=EDITOR`);
+        
+        if (!ssoResult.success || !ssoResult.data?.url) {
+            console.error('SSO link generation failed:', ssoResult.error);
+            return res.status(500).json({ success: false, error: 'Failed to generate editor link' });
+        }
+        
+        res.json({
+            success: true,
+            editorUrl: ssoResult.data.url,
+            daysRemaining: getTrialDaysRemaining(trial),
+            hasPaid: trial.hasPaid,
+            canPublish: trial.hasPublishAccess
+        });
+        
+    } catch (error) {
+        console.error('Editor link error:', error);
+        res.status(500).json({ success: false, error: 'Failed to generate editor link' });
+    }
+});
+
+// Get trial status
+app.get('/api/trial/status/:email', async (req, res) => {
+    try {
+        const email = decodeURIComponent(req.params.email);
+        const siteName = req.query.siteName || null;
+        const trial = getTrialInfo(email, siteName);
+        
+        if (!trial) {
+            return res.json({ success: true, hasTrial: false });
+        }
+        
+        res.json({
+            success: true,
+            hasTrial: true,
+            trial: {
+                ...trial,
+                daysRemaining: getTrialDaysRemaining(trial),
+                isExpired: isTrialExpired(trial)
+            }
+        });
+        
+    } catch (error) {
+        console.error('Trial status error:', error);
+        res.status(500).json({ success: false, error: 'Failed to get trial status' });
+    }
+});
+
+// Upgrade trial - grant PUBLISH permission after payment
+app.post('/api/trial/upgrade', async (req, res) => {
+    try {
+        const { email, siteName, invoiceId } = req.body;
+        
+        if (!email || !siteName) {
+            return res.status(400).json({ success: false, error: 'Email and site name are required' });
+        }
+        
+        // Verify payment if invoice ID provided
+        if (invoiceId && WHMCS_API_URL) {
+            const invoiceStatus = await checkWHMCSInvoice(invoiceId);
+            if (!invoiceStatus.isPaid) {
+                return res.status(402).json({ success: false, error: 'Payment not confirmed yet' });
+            }
+        }
+        
+        // Grant PUBLISH permission
+        console.log(`Upgrading permissions for: ${email} -> ${siteName}`);
+        const permissionsResult = await callDudaAPI('POST', `/accounts/${encodeURIComponent(email)}/sites/${siteName}/permissions`, {
+            permissions: ['EDIT', 'PUBLISH', 'DEV_MODE', 'STATS_TAB', 'SEO', 'BLOG', 'CUSTOM_DOMAIN', 'BACKUPS']
+        });
+        
+        if (!permissionsResult.success) {
+            console.error('Permission upgrade failed:', permissionsResult.error);
+            // Continue anyway - they paid, we should update our records
+        }
+        
+        // Update trial record
+        const trial = getTrialInfo(email, siteName);
+        if (trial) {
+            saveTrialInfo({
+                ...trial,
+                hasPaid: true,
+                hasPublishAccess: true,
+                paidDate: new Date().toISOString(),
+                invoiceId
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: 'Account upgraded! You can now publish your website.',
+            hasPublishAccess: true
+        });
+        
+    } catch (error) {
+        console.error('Trial upgrade error:', error);
+        res.status(500).json({ success: false, error: 'Failed to upgrade trial' });
+    }
+});
+
+// Helper function to check WHMCS invoice status
+async function checkWHMCSInvoice(invoiceId) {
+    if (!WHMCS_API_URL) {
+        return { isPaid: false, error: 'WHMCS not configured' };
+    }
+    
+    try {
+        const params = new URLSearchParams({
+            action: 'GetInvoice',
+            invoiceid: invoiceId,
+            identifier: WHMCS_API_IDENTIFIER,
+            secret: WHMCS_API_SECRET,
+            responsetype: 'json'
+        });
+        
+        const response = await axios.post(WHMCS_API_URL, params);
+        const status = response.data?.status?.toLowerCase();
+        
+        return {
+            isPaid: status === 'paid',
+            status: status
+        };
+    } catch (error) {
+        console.error('WHMCS invoice check error:', error);
+        return { isPaid: false, error: error.message };
+    }
+}
 
 // ============================================
 // SERVE HTML PAGES
