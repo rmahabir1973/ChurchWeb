@@ -598,8 +598,8 @@ body {
 /* Templates Grid */
 .templates-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 24px;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 32px;
     margin-bottom: 32px;
 }
 
@@ -624,10 +624,10 @@ body {
 
 .template-image {
     width: 100%;
-    height: 200px;
+    height: 400px;
     background: var(--surface);
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     font-size: 64px;
     overflow: hidden;
@@ -635,8 +635,9 @@ body {
 
 .template-image img {
     width: 100%;
-    height: 100%;
-    object-fit: cover;
+    height: auto;
+    object-fit: contain;
+    object-position: top;
 }
 
 .template-info {
