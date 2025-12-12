@@ -2430,111 +2430,101 @@ app.post('/api/client/open-editor', requirePortalSession, async (req, res) => {
 // ADMIN: IMPORT EXISTING DUDA CLIENTS
 // ============================================
 
-// Import all existing accounts from DUDA
+// Import all existing sites from DUDA (and create clients from site owners)
 app.post('/api/admin/import-duda-clients', requireAdmin, async (req, res) => {
     try {
-        console.log('Starting DUDA client import...');
+        console.log('Starting DUDA site/client import...');
         
-        // Fetch all accounts from DUDA (with pagination support)
-        let allAccounts = [];
-        let offset = 0;
-        const limit = 100;
-        let hasMore = true;
+        // Fetch all sites from DUDA (the accounts endpoint doesn't exist in Partner API)
+        const sitesResult = await callDudaAPI('GET', '/sites/multiscreen');
+        console.log('DUDA sites fetch:', sitesResult.success ? `Got ${(sitesResult.data || []).length} sites` : sitesResult.error);
         
-        while (hasMore) {
-            const accountsResult = await callDudaAPI('GET', `/accounts?limit=${limit}&offset=${offset}`);
-            console.log(`DUDA accounts fetch (offset=${offset}):`, accountsResult.success ? `Got ${(accountsResult.data || []).length} accounts` : accountsResult.error);
-            
-            if (!accountsResult.success) {
-                console.error('DUDA API error details:', accountsResult.error);
-                return res.status(500).json({ 
-                    success: false, 
-                    error: `Failed to fetch DUDA accounts: ${accountsResult.error || 'Unknown error'}` 
-                });
-            }
-            
-            const accounts = accountsResult.data || [];
-            allAccounts = allAccounts.concat(accounts);
-            
-            if (accounts.length < limit) {
-                hasMore = false;
-            } else {
-                offset += limit;
-            }
+        if (!sitesResult.success) {
+            console.error('DUDA API error details:', sitesResult.error);
+            return res.status(500).json({ 
+                success: false, 
+                error: `Failed to fetch DUDA sites: ${sitesResult.error || 'Unknown error'}` 
+            });
         }
         
-        const accounts = allAccounts;
-        console.log(`Total DUDA accounts fetched: ${accounts.length}`);
+        const sites = sitesResult.data || [];
         
-        if (accounts.length === 0) {
-            return res.json({ success: true, message: 'No DUDA accounts found to import', imported: 0, skipped: 0 });
+        if (sites.length === 0) {
+            return res.json({ success: true, message: 'No DUDA sites found to import', imported: 0, skipped: 0 });
         }
         
-        let imported = 0;
-        let skipped = 0;
+        let sitesImported = 0;
+        let sitesSkipped = 0;
+        let clientsCreated = 0;
         let errors = [];
         
-        for (const account of accounts) {
+        for (const site of sites) {
             try {
-                const email = account.account_name || account.email;
-                if (!email) continue;
+                const siteName = site.site_name;
+                if (!siteName) continue;
                 
-                // Check if already exists
-                const existing = await dbQuery('SELECT id FROM clients WHERE LOWER(email) = $1', [email.toLowerCase()]);
+                // Check if site already exists
+                const existingSite = await dbQuery('SELECT id FROM sites WHERE site_name = $1', [siteName]);
                 
-                if (existing.rows.length > 0) {
-                    skipped++;
+                if (existingSite.rows.length > 0) {
+                    sitesSkipped++;
                     continue;
                 }
                 
-                // Import as legacy client
-                await dbQuery(
-                    `INSERT INTO clients (email, first_name, last_name, duda_account_created, is_legacy)
-                     VALUES ($1, $2, $3, true, true)`,
-                    [email.toLowerCase(), account.first_name || null, account.last_name || null]
-                );
+                // Get detailed site info including owner
+                const siteDetails = await callDudaAPI('GET', `/sites/multiscreen/${siteName}`);
+                const businessName = siteDetails.data?.site_business_info?.business_name || 
+                                     siteDetails.data?.site_name || siteName;
+                const ownerEmail = siteDetails.data?.account_name || null;
                 
-                // Get their sites and import those too
-                const sitesResult = await callDudaAPI('GET', `/accounts/${encodeURIComponent(email)}/sites`);
-                if (sitesResult.success && sitesResult.data) {
-                    const clientResult = await dbQuery('SELECT id FROM clients WHERE LOWER(email) = $1', [email.toLowerCase()]);
-                    const clientId = clientResult.rows[0]?.id;
+                let clientId = null;
+                
+                // If there's an owner email, create or find the client
+                if (ownerEmail) {
+                    const existingClient = await dbQuery('SELECT id FROM clients WHERE LOWER(email) = $1', [ownerEmail.toLowerCase()]);
                     
-                    for (const site of sitesResult.data) {
-                        const siteName = site.site_name;
-                        if (siteName && clientId) {
-                            // Check if site exists
-                            const existingSite = await dbQuery('SELECT id FROM sites WHERE site_name = $1', [siteName]);
-                            if (existingSite.rows.length === 0) {
-                                await dbQuery(
-                                    `INSERT INTO sites (site_name, client_id, church_name, is_published)
-                                     VALUES ($1, $2, $3, $4)`,
-                                    [siteName, clientId, site.site_business_info?.business_name || null, true]
-                                );
-                            }
-                        }
+                    if (existingClient.rows.length > 0) {
+                        clientId = existingClient.rows[0].id;
+                    } else {
+                        // Create new client
+                        const newClient = await dbQuery(
+                            `INSERT INTO clients (email, church_name, duda_account_created, is_legacy)
+                             VALUES ($1, $2, true, true) RETURNING id`,
+                            [ownerEmail.toLowerCase(), businessName]
+                        );
+                        clientId = newClient.rows[0]?.id;
+                        clientsCreated++;
                     }
                 }
                 
-                imported++;
+                // Import the site
+                await dbQuery(
+                    `INSERT INTO sites (site_name, client_id, church_name, is_published)
+                     VALUES ($1, $2, $3, $4)`,
+                    [siteName, clientId, businessName, true]
+                );
+                
+                sitesImported++;
             } catch (err) {
-                errors.push({ account: account.account_name, error: err.message });
+                console.error(`Error importing site ${site.site_name}:`, err.message);
+                errors.push({ site: site.site_name, error: err.message });
             }
         }
         
-        console.log(`DUDA import complete: ${imported} imported, ${skipped} skipped, ${errors.length} errors`);
+        console.log(`DUDA import complete: ${sitesImported} sites imported, ${sitesSkipped} skipped, ${clientsCreated} clients created, ${errors.length} errors`);
         
         res.json({
             success: true,
-            message: `Import complete: ${imported} clients imported, ${skipped} already existed`,
-            imported,
-            skipped,
-            errors: errors.slice(0, 10) // Only show first 10 errors
+            message: `Import complete: ${sitesImported} sites imported, ${clientsCreated} clients created, ${sitesSkipped} already existed`,
+            sitesImported,
+            clientsCreated,
+            skipped: sitesSkipped,
+            errors: errors.slice(0, 10)
         });
         
     } catch (error) {
         console.error('DUDA import error:', error);
-        res.status(500).json({ success: false, error: 'Failed to import DUDA clients' });
+        res.status(500).json({ success: false, error: 'Failed to import DUDA sites' });
     }
 });
 
