@@ -275,25 +275,18 @@ app.get('/api/templates', async (req, res) => {
   }
 });
 
-// Get only CUSTOM templates (filtered)
+// Get only CUSTOM templates (filtered to approved templates only)
+// Currently only the "Modern Church" template (dde17a8d) is approved for use
+const APPROVED_TEMPLATES = ['dde17a8d'];
+
 app.get('/api/templates/custom', async (req, res) => {
   try {
     const result = await callDudaAPI('GET', '/sites/multiscreen/templates');
     
     if (result.success && Array.isArray(result.data)) {
-      // Filter to only show custom templates (not DUDA default templates)
-      // Custom templates have account_name matching the API user or specific naming patterns
+      // Filter to only show approved templates
       const customTemplates = result.data.filter(template => {
-        // Check if it's a custom template by looking at properties
-        // DUDA custom templates typically have template_id > 1000000 or specific naming
-        const isCustom = template.template_type === 'CUSTOM' || 
-                        template.account_name === DUDA_API_USER ||
-                        (template.template_name && (
-                          template.template_name.toUpperCase().includes('CHURCH') ||
-                          template.template_name.toUpperCase().includes('MINISTRY') ||
-                          template.template_name.toUpperCase().includes('FAITH')
-                        ));
-        return isCustom;
+        return APPROVED_TEMPLATES.includes(template.base_site_name);
       });
       
       res.json({ success: true, templates: customTemplates });
