@@ -68,6 +68,7 @@ function setupEventListeners() {
     // Import clients buttons
     document.getElementById('import-clients-btn')?.addEventListener('click', importDudaClients);
     document.getElementById('import-clients-btn-2')?.addEventListener('click', importDudaClients);
+    document.getElementById('clear-sites-btn')?.addEventListener('click', clearAllSites);
     
     // Refresh stats
     document.getElementById('refresh-stats-btn')?.addEventListener('click', loadDashboardData);
@@ -662,6 +663,43 @@ async function importDudaClients() {
                 b.innerHTML = 'Import DUDA Clients';
             }
         });
+    }
+}
+
+async function clearAllSites() {
+    if (!confirm('Are you sure you want to clear ALL sites and legacy clients?\n\nThis action cannot be undone!')) return;
+    
+    // Double confirm for safety
+    if (!confirm('This will permanently delete all imported sites. Are you absolutely sure?')) return;
+    
+    const btn = document.getElementById('clear-sites-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading-spinner"></span> Clearing...';
+    }
+    
+    try {
+        const response = await authFetch('/api/admin/clear-sites', {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`Cleared successfully!\n\nSites removed: ${data.sitesDeleted}\nClients removed: ${data.clientsDeleted}`);
+            loadDashboardData();
+            loadClients(1);
+            loadSites(1);
+        } else {
+            alert(data.error || 'Clear failed');
+        }
+    } catch (error) {
+        alert('Clear failed: ' + error.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = 'Clear All Sites';
+        }
     }
 }
 

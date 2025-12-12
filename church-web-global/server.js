@@ -2587,6 +2587,32 @@ app.post('/api/admin/import-duda-clients', requireAdmin, async (req, res) => {
     }
 });
 
+// Admin: Clear all sites and legacy clients
+app.post('/api/admin/clear-sites', requireAdmin, async (req, res) => {
+    try {
+        console.log('Admin: Clearing all sites and legacy clients...');
+        
+        // Delete in correct order due to foreign keys
+        const trialsResult = await dbQuery('DELETE FROM trials');
+        const sitesResult = await dbQuery('DELETE FROM sites');
+        const clientsResult = await dbQuery('DELETE FROM clients WHERE is_legacy = true');
+        
+        console.log(`Cleared: ${trialsResult.rowCount} trials, ${sitesResult.rowCount} sites, ${clientsResult.rowCount} legacy clients`);
+        
+        res.json({
+            success: true,
+            message: 'All sites and legacy clients cleared',
+            trialsDeleted: trialsResult.rowCount,
+            sitesDeleted: sitesResult.rowCount,
+            clientsDeleted: clientsResult.rowCount
+        });
+        
+    } catch (error) {
+        console.error('Clear sites error:', error);
+        res.status(500).json({ success: false, error: 'Failed to clear sites' });
+    }
+});
+
 // Admin: Generate SSO editor link for any site
 app.get('/api/admin/site-editor-link/:siteName', requireAdmin, async (req, res) => {
     try {
