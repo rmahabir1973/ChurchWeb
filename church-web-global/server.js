@@ -2508,17 +2508,32 @@ app.post('/api/admin/import-duda-clients', requireAdmin, async (req, res) => {
                 
                 // Get detailed site info including owner and preview URL
                 const siteDetails = await callDudaAPI('GET', `/sites/multiscreen/${siteName}`);
-                const businessName = siteDetails.data?.site_business_info?.business_name || 
-                                     siteDetails.data?.site_name || siteName;
                 const ownerEmail = siteDetails.data?.account_name || null;
                 
-                // Get preview URL - try preview_site_url first, then construct from site_domain
-                let previewUrl = siteDetails.data?.preview_site_url || null;
-                if (!previewUrl && siteDetails.data?.site_domain) {
-                    previewUrl = `https://${siteDetails.data.site_domain}`;
+                // Get site domain (the actual live website domain)
+                const siteDomain = siteDetails.data?.site_domain || null;
+                
+                // Get church name - prioritize business_name, then use domain if available, then fall back to site_name
+                let businessName = siteDetails.data?.site_business_info?.business_name;
+                if (!businessName || businessName === siteName) {
+                    // Use the domain name as the church name (more readable than site ID)
+                    if (siteDomain) {
+                        // Format domain nicely - remove www. and .com/.org/.ca etc for display
+                        businessName = siteDomain;
+                    } else {
+                        businessName = siteName;
+                    }
                 }
-                if (!previewUrl && siteDetails.data?.canonical_url) {
+                
+                // Get preview URL - PRIORITIZE site_domain (live URL) over preview_site_url (dev URL)
+                let previewUrl = null;
+                if (siteDomain) {
+                    previewUrl = `https://${siteDomain}`;
+                } else if (siteDetails.data?.canonical_url) {
                     previewUrl = siteDetails.data.canonical_url;
+                } else if (siteDetails.data?.preview_site_url) {
+                    // Only use dev preview URL as last resort
+                    previewUrl = siteDetails.data.preview_site_url;
                 }
                 
                 let clientId = null;
