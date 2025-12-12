@@ -6,14 +6,17 @@ Church Web Global is a SaaS platform for church website hosting, built with Node
 ## Project Structure
 ```
 church-web-global/
-├── server.js          # Express backend with DUDA API integration
-├── package.json       # Project dependencies
+├── server.js           # Express backend with DUDA API integration
+├── package.json        # Project dependencies
 ├── public/
-│   ├── index.html     # Homepage with features, pricing, about sections
-│   ├── funnel.html    # Multi-step website builder funnel
-│   ├── styles.css     # Complete styling for both pages
-│   └── app.js         # Frontend JavaScript for funnel functionality
-└── README.md          # Project documentation
+│   ├── index-new.html  # NEW: Modern SaaS landing page (main homepage)
+│   ├── index.html      # OLD: Original homepage (accessible at /old)
+│   ├── funnel.html     # Multi-step website builder funnel
+│   ├── styles-new.css  # NEW: Complete design system for landing page
+│   ├── styles.css      # Original styling for funnel page
+│   ├── landing.js      # NEW: JavaScript for landing page interactions
+│   └── app.js          # Frontend JavaScript for funnel functionality
+└── README.md           # Project documentation
 ```
 
 ## Running the Project
@@ -35,43 +38,72 @@ church-web-global/
 - `DUDA_API_USER` - DUDA API username
 - `DUDA_API_PASSWORD` - DUDA API password
 - `DUDA_API_ENDPOINT` - DUDA API base URL (https://api.duda.co/api)
+- `WHMCS_API_URL` - WHMCS API URL
+- `WHMCS_API_IDENTIFIER` - WHMCS API identifier
+- `WHMCS_API_SECRET` - WHMCS API secret
+- `WHMCS_PRODUCT_STARTER` - WHMCS product ID for Starter plan
+- `WHMCS_PRODUCT_PROFESSIONAL` - WHMCS product ID for Professional plan
+- `WHMCS_PRODUCT_ENTERPRISE` - WHMCS product ID for Enterprise plan
 
 ## Features
-1. **Homepage** - Professional landing page with features, pricing, about, and contact sections
+1. **Modern SaaS Landing Page** (NEW)
+   - Hero section with gradient text and browser mockup
+   - Social proof banner with animated counters
+   - 6-card features grid
+   - 4-step demo builder preview
+   - 3-tier pricing with monthly/annual toggle
+   - Full footer with links
+   - Scroll animations and smooth scrolling
+   
 2. **Website Builder Funnel** - 5-step process:
    - Step 1: Choose Template (custom church templates only)
    - Step 2: Church Info (collect church details)
    - Step 3: Select Pages (AI-powered suggestions)
    - Step 4: Preview (view unpublished site)
    - Step 5: Sign Up (create account, select plan - no auto-publish)
+
 3. **DUDA Integration** - Creates and manages church websites via DUDA API
 4. **DUDA MCP AI** - AI-powered page and content suggestions
 5. **WHMCS Integration** - Client and order management (API polling for payment status)
 6. **AI Content Generation** - OpenAI-powered content writing for each page
 7. **Fallback Templates** - Mock templates display when DUDA API is unavailable
 
+## Design System (styles-new.css)
+```css
+/* Primary Colors */
+--color-primary: #6B46C1 (Deep Purple)
+--color-accent: #D946A6 (Vibrant Magenta)
+--color-navy-dark: #1E1B4B (Headers, footer)
+
+/* Typography */
+--font-primary: 'Inter' (body text)
+--font-accent: 'Outfit' (headings)
+
+/* Gradients */
+--gradient-hero: linear-gradient(135deg, #6B46C1 0%, #D946A6 100%)
+```
+
 ## Recent Changes
+- December 12, 2024: Complete landing page redesign
+  - Created new modern SaaS-style landing page (index-new.html)
+  - Built comprehensive CSS design system (styles-new.css)
+  - Added landing.js with all JavaScript interactions
+  - Hero section with gradient text, browser mockup, floating cards
+  - Social proof banner with animated counters (200+, 50000+, 99.9%, Since 2010)
+  - Features grid with 6 church-specific feature cards
+  - "How It Works" section with 4-step visual
+  - Pricing section with monthly/annual toggle
+  - Full footer with navigation links
+  - Fixed static middleware to use custom route for homepage
+  - Old homepage still accessible at /old route
+  
 - December 10, 2024: Initial setup with full project structure
-- Configured server to bind to 0.0.0.0:5000 for Replit compatibility
-- Added cache control headers to prevent caching issues
-- Set up environment secrets for DUDA API credentials
-- Added demo mode support for mock templates when DUDA API is unavailable
-- Added input validation for site creation and signup endpoints
-- Fixed DUDA API endpoint normalization (auto-appends /api if not present)
-- Updated frontend to display real DUDA template thumbnail images
-- December 10, 2024: Enhanced site customization
-  - Site creation now properly applies church info to DUDA site
-  - Content Library API used to update business name, location, and texts
-  - AI-generated page content stored as custom text blocks
-  - Business info update endpoint for name/address/email
 - December 10, 2024: Enhanced WHMCS integration
-  - Added WHMCS API credentials configuration
-  - Invoice status polling endpoint for payment verification
-  - Site publish endpoint with payment confirmation check
-  - Frontend polling for payment status with auto-publish button
-  - Business info update endpoint after site creation
+- December 10, 2024: Enhanced site customization
 
 ## Notes
-- The DUDA_API_ENDPOINT secret should be set to the value from your DUDA dashboard (e.g., https://api.duda.co) - the system will automatically append /api if needed
+- The new landing page is served at `/` (index-new.html)
+- The old landing page is accessible at `/old` (index.html)
+- Funnel remains at `/funnel.html` or `/funnel`
+- The DUDA_API_ENDPOINT secret should be set to the value from your DUDA dashboard
 - Demo mode allows full funnel testing with mock templates if DUDA API is unavailable
-- Payment integration (Stripe/PayPal) needs to be added for production use
