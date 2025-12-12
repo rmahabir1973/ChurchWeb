@@ -57,7 +57,7 @@
             color: #374151;
         }
         
-        .form-group input {
+        .form-group input, .form-group select, .form-group textarea {
             width: 100%;
             padding: 12px;
             border: 1px solid #d1d5db;
@@ -65,7 +65,7 @@
             font-size: 14px;
         }
         
-        .form-group input:focus {
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
             outline: none;
             border-color: #6B46C1;
             box-shadow: 0 0 0 3px rgba(107, 70, 193, 0.1);
@@ -79,12 +79,14 @@
             cursor: pointer;
             font-size: 14px;
             transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
         
         .btn-primary {
             background: linear-gradient(135deg, #6B46C1 0%, #D946A6 100%);
             color: white;
-            width: 100%;
         }
         
         .btn-primary:hover {
@@ -107,6 +109,21 @@
             color: white;
         }
         
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
         .error-message {
             background: #fef2f2;
             color: #dc2626;
@@ -116,7 +133,15 @@
             display: none;
         }
         
-        /* Admin Dashboard */
+        .success-message {
+            background: #d1fae5;
+            color: #059669;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+        }
+        
         .admin-container {
             display: none;
         }
@@ -128,6 +153,9 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
         
         .admin-header h1 {
@@ -136,7 +164,8 @@
         
         .admin-nav {
             display: flex;
-            gap: 16px;
+            gap: 8px;
+            flex-wrap: wrap;
         }
         
         .admin-nav button {
@@ -163,7 +192,7 @@
         
         .admin-content {
             padding: 24px;
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
         }
         
@@ -180,11 +209,19 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
         }
         
         .section-header h2 {
             color: #1E1B4B;
             font-size: 24px;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
         }
         
         .card {
@@ -209,7 +246,90 @@
             font-size: 18px;
         }
         
-        /* Template Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .stat-card h4 {
+            color: #64748b;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1E1B4B;
+        }
+        
+        .stat-card .subtext {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .data-table th, .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .data-table th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+        
+        .data-table tr:hover {
+            background: #f9fafb;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-active, .status-paid {
+            background: #d1fae5;
+            color: #059669;
+        }
+        
+        .status-trial {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-expired {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .status-legacy {
+            background: #e0e7ff;
+            color: #4338ca;
+        }
+        
         .template-card {
             display: flex;
             gap: 20px;
@@ -254,30 +374,6 @@
             margin-top: 12px;
         }
         
-        .template-actions .btn {
-            padding: 8px 16px;
-            font-size: 13px;
-        }
-        
-        .status-badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-        
-        .status-enabled {
-            background: #d1fae5;
-            color: #059669;
-        }
-        
-        .status-disabled {
-            background: #fee2e2;
-            color: #dc2626;
-        }
-        
-        /* Modal */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -300,7 +396,7 @@
             border-radius: 12px;
             padding: 24px;
             width: 100%;
-            max-width: 500px;
+            max-width: 600px;
             max-height: 90vh;
             overflow-y: auto;
         }
@@ -317,50 +413,187 @@
             margin-top: 24px;
         }
         
-        /* Stats */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
+        .search-box {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
         }
         
-        .stat-card {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-        
-        .stat-card h4 {
-            color: #64748b;
+        .search-box input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
             font-size: 14px;
-            font-weight: 500;
-            margin-bottom: 8px;
         }
         
-        .stat-card .value {
-            font-size: 32px;
-            font-weight: 700;
-            color: #1E1B4B;
+        .filter-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-bar select {
+            padding: 10px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
         }
         
         .empty-state {
             text-align: center;
-            padding: 40px;
+            padding: 60px 20px;
             color: #64748b;
         }
         
-        .empty-state svg {
-            width: 64px;
-            height: 64px;
+        .empty-state h3 {
+            color: #374151;
+            margin-bottom: 8px;
+        }
+        
+        .table-responsive {
+            overflow-x: auto;
+        }
+        
+        .action-menu {
+            position: relative;
+        }
+        
+        .action-menu-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 160px;
+            z-index: 50;
+        }
+        
+        .action-menu-content.active {
+            display: block;
+        }
+        
+        .action-menu-content button {
+            display: block;
+            width: 100%;
+            padding: 10px 16px;
+            text-align: left;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            color: #374151;
+        }
+        
+        .action-menu-content button:hover {
+            background: #f3f4f6;
+        }
+        
+        .action-menu-content button.danger {
+            color: #dc2626;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 4px;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 12px 20px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #64748b;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+        }
+        
+        .tab.active {
+            color: #6B46C1;
+            border-bottom-color: #6B46C1;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e5e7eb;
+            border-top-color: #6B46C1;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .alert {
+            padding: 16px;
+            border-radius: 8px;
             margin-bottom: 16px;
+        }
+        
+        .alert-info {
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .alert-warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .alert-success {
+            background: #d1fae5;
+            color: #059669;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 20px;
+        }
+        
+        .pagination button {
+            padding: 8px 16px;
+            border: 1px solid #d1d5db;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .pagination button.active {
+            background: #6B46C1;
+            color: white;
+            border-color: #6B46C1;
+        }
+        
+        .pagination button:disabled {
             opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        @media (max-width: 768px) {
+            .admin-nav {
+                display: none;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Login Screen -->
     <div class="login-container" id="login-screen">
         <div class="login-box">
             <h1>Admin Panel</h1>
@@ -373,7 +606,7 @@
                     <label for="password">Admin Password</label>
                     <input type="password" id="password" placeholder="Enter admin password" required>
                 </div>
-                <button type="submit" class="btn btn-primary">Login</button>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
             </form>
             
             <div id="setup-notice" style="margin-top: 20px; padding: 16px; background: #fef3c7; border-radius: 8px; display: none;">
@@ -382,13 +615,16 @@
         </div>
     </div>
     
-    <!-- Admin Dashboard -->
     <div class="admin-container" id="admin-dashboard">
         <header class="admin-header">
             <h1>Church Web Global Admin</h1>
             <nav class="admin-nav">
                 <button class="active" data-section="dashboard">Dashboard</button>
+                <button data-section="clients">Clients</button>
+                <button data-section="sites">Sites</button>
+                <button data-section="trials">Trials</button>
                 <button data-section="templates">Templates</button>
+                <button data-section="email">Email</button>
                 <button data-section="settings">Settings</button>
                 <button class="logout-btn" id="logout-btn">Logout</button>
             </nav>
@@ -399,20 +635,36 @@
             <div class="section active" id="section-dashboard">
                 <div class="section-header">
                     <h2>Dashboard</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" id="refresh-stats-btn">Refresh Stats</button>
+                    </div>
                 </div>
                 
-                <div class="stats-grid">
+                <div class="stats-grid" id="dashboard-stats">
                     <div class="stat-card">
-                        <h4>Active Templates</h4>
-                        <div class="value" id="stat-templates">0</div>
+                        <h4>Total Clients</h4>
+                        <div class="value" id="stat-clients">-</div>
+                        <div class="subtext" id="stat-clients-sub"></div>
                     </div>
                     <div class="stat-card">
-                        <h4>Sites Created</h4>
+                        <h4>Total Sites</h4>
                         <div class="value" id="stat-sites">-</div>
                     </div>
                     <div class="stat-card">
+                        <h4>Active Trials</h4>
+                        <div class="value" id="stat-trials">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Paid Accounts</h4>
+                        <div class="value" id="stat-paid">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Templates</h4>
+                        <div class="value" id="stat-templates">-</div>
+                    </div>
+                    <div class="stat-card">
                         <h4>API Status</h4>
-                        <div class="value" style="font-size: 18px;" id="stat-api">Checking...</div>
+                        <div class="value" style="font-size: 16px;" id="stat-api">Checking...</div>
                     </div>
                 </div>
                 
@@ -421,8 +673,155 @@
                         <h3>Quick Actions</h3>
                     </div>
                     <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <button class="btn btn-success" id="import-clients-btn">Import DUDA Clients</button>
                         <a href="/funnel" target="_blank" class="btn btn-primary">View Funnel</a>
                         <a href="/" target="_blank" class="btn btn-secondary">View Homepage</a>
+                        <a href="/portal" target="_blank" class="btn btn-secondary">View Portal</a>
+                    </div>
+                </div>
+                
+                <div class="card" id="recent-activity">
+                    <div class="card-header">
+                        <h3>Recent Clients</h3>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="recent-clients-table">
+                            <thead>
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Church Name</th>
+                                    <th>Type</th>
+                                    <th>Created</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-clients-body">
+                                <tr><td colspan="4" style="text-align: center;">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Clients Section -->
+            <div class="section" id="section-clients">
+                <div class="section-header">
+                    <h2>Client Management</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-success" id="import-clients-btn-2">Import from DUDA</button>
+                        <button class="btn btn-primary" id="add-client-btn">Add Client</button>
+                    </div>
+                </div>
+                
+                <div class="search-box">
+                    <input type="text" id="client-search" placeholder="Search by email or church name...">
+                    <button class="btn btn-secondary" id="search-clients-btn">Search</button>
+                </div>
+                
+                <div class="filter-bar">
+                    <select id="client-filter">
+                        <option value="all">All Clients</option>
+                        <option value="legacy">Legacy (Pre-existing)</option>
+                        <option value="new">New Signups</option>
+                        <option value="paid">Paid</option>
+                        <option value="trial">In Trial</option>
+                    </select>
+                </div>
+                
+                <div class="card">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Name</th>
+                                    <th>Church</th>
+                                    <th>Sites</th>
+                                    <th>Type</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clients-table-body">
+                                <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="clients-pagination"></div>
+                </div>
+            </div>
+            
+            <!-- Sites Section -->
+            <div class="section" id="section-sites">
+                <div class="section-header">
+                    <h2>Site Management</h2>
+                </div>
+                
+                <div class="search-box">
+                    <input type="text" id="site-search" placeholder="Search by site name or church...">
+                    <button class="btn btn-secondary" id="search-sites-btn">Search</button>
+                </div>
+                
+                <div class="filter-bar">
+                    <select id="site-filter">
+                        <option value="all">All Sites</option>
+                        <option value="published">Published</option>
+                        <option value="unpublished">Unpublished</option>
+                    </select>
+                </div>
+                
+                <div class="card">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Site Name</th>
+                                    <th>Church</th>
+                                    <th>Client</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sites-table-body">
+                                <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="sites-pagination"></div>
+                </div>
+            </div>
+            
+            <!-- Trials Section -->
+            <div class="section" id="section-trials">
+                <div class="section-header">
+                    <h2>Trial Management</h2>
+                </div>
+                
+                <div class="tabs">
+                    <button class="tab active" data-trial-tab="active">Active Trials</button>
+                    <button class="tab" data-trial-tab="expiring">Expiring Soon</button>
+                    <button class="tab" data-trial-tab="expired">Expired</button>
+                    <button class="tab" data-trial-tab="upgraded">Upgraded</button>
+                </div>
+                
+                <div class="card">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Site</th>
+                                    <th>Started</th>
+                                    <th>Expires</th>
+                                    <th>Days Left</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trials-table-body">
+                                <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -434,8 +833,63 @@
                     <button class="btn btn-primary" id="add-template-btn">+ Add Template</button>
                 </div>
                 
-                <div id="templates-list">
-                    <!-- Templates will be loaded here -->
+                <div id="templates-list"></div>
+            </div>
+            
+            <!-- Email Section -->
+            <div class="section" id="section-email">
+                <div class="section-header">
+                    <h2>Email Management</h2>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Send Test Email</h3>
+                    </div>
+                    <form id="test-email-form">
+                        <div class="form-group">
+                            <label>From Address</label>
+                            <select id="email-from">
+                                <option value="support@churchwebglobal.com">support@churchwebglobal.com</option>
+                                <option value="billing@churchwebglobal.com">billing@churchwebglobal.com</option>
+                                <option value="info@churchwebglobal.com">info@churchwebglobal.com</option>
+                                <option value="admin@churchwebglobal.com">admin@churchwebglobal.com</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>To Email</label>
+                            <input type="email" id="email-to" required placeholder="recipient@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Subject</label>
+                            <input type="text" id="email-subject" required placeholder="Test email subject">
+                        </div>
+                        <div class="form-group">
+                            <label>Message</label>
+                            <textarea id="email-body" rows="5" placeholder="Email message content"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Send Test Email</button>
+                    </form>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Email Templates</h3>
+                    </div>
+                    <div style="display: grid; gap: 12px;">
+                        <div style="padding: 16px; background: #f9fafb; border-radius: 8px;">
+                            <strong>Magic Link Email</strong>
+                            <p style="color: #64748b; font-size: 14px; margin-top: 4px;">Sent when clients request portal access</p>
+                        </div>
+                        <div style="padding: 16px; background: #f9fafb; border-radius: 8px;">
+                            <strong>Trial Welcome Email</strong>
+                            <p style="color: #64748b; font-size: 14px; margin-top: 4px;">Sent when new trial starts</p>
+                        </div>
+                        <div style="padding: 16px; background: #f9fafb; border-radius: 8px;">
+                            <strong>Trial Expiring Reminder</strong>
+                            <p style="color: #64748b; font-size: 14px; margin-top: 4px;">Sent 3 days before trial expires</p>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -464,6 +918,30 @@
                         </div>
                         <button type="submit" class="btn btn-primary">Update Password</button>
                     </form>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>API Configuration Status</h3>
+                    </div>
+                    <div id="api-status-list" style="display: grid; gap: 12px;">
+                        <div style="display: flex; justify-content: space-between; padding: 12px; background: #f9fafb; border-radius: 8px;">
+                            <span>DUDA API</span>
+                            <span id="duda-status" class="status-badge">Checking...</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 12px; background: #f9fafb; border-radius: 8px;">
+                            <span>WHMCS API</span>
+                            <span id="whmcs-status" class="status-badge">Checking...</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 12px; background: #f9fafb; border-radius: 8px;">
+                            <span>Postmark Email</span>
+                            <span id="postmark-status" class="status-badge">Checking...</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 12px; background: #f9fafb; border-radius: 8px;">
+                            <span>Database</span>
+                            <span id="db-status" class="status-badge">Checking...</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -495,7 +973,6 @@
                 <div class="form-group">
                     <label for="template-thumbnail">Custom Thumbnail URL (optional)</label>
                     <input type="url" id="template-thumbnail" placeholder="https://example.com/thumbnail.png">
-                    <small style="color: #64748b;">Leave empty to use DUDA's auto-generated thumbnail</small>
                 </div>
                 
                 <div class="form-group">
@@ -508,6 +985,65 @@
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" id="cancel-modal">Cancel</button>
                     <button type="submit" class="btn btn-primary">Save Template</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Add Client Modal -->
+    <div class="modal-overlay" id="client-modal">
+        <div class="modal">
+            <h3>Add New Client</h3>
+            <form id="client-form">
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" id="client-email" required placeholder="client@email.com">
+                </div>
+                <div class="form-group">
+                    <label>First Name</label>
+                    <input type="text" id="client-first-name" placeholder="John">
+                </div>
+                <div class="form-group">
+                    <label>Last Name</label>
+                    <input type="text" id="client-last-name" placeholder="Doe">
+                </div>
+                <div class="form-group">
+                    <label>Church Name</label>
+                    <input type="text" id="client-church" placeholder="First Baptist Church">
+                </div>
+                <div class="form-group">
+                    <label>Phone</label>
+                    <input type="tel" id="client-phone" placeholder="(555) 123-4567">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('client-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Client</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Extend Trial Modal -->
+    <div class="modal-overlay" id="extend-trial-modal">
+        <div class="modal">
+            <h3>Extend Trial</h3>
+            <form id="extend-trial-form">
+                <input type="hidden" id="extend-trial-email">
+                <input type="hidden" id="extend-trial-site">
+                <div class="form-group">
+                    <label>Current Expiry: <span id="extend-current-expiry"></span></label>
+                </div>
+                <div class="form-group">
+                    <label>Extend by (days)</label>
+                    <select id="extend-days">
+                        <option value="7">7 days</option>
+                        <option value="14">14 days</option>
+                        <option value="30">30 days</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('extend-trial-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Extend Trial</button>
                 </div>
             </form>
         </div>

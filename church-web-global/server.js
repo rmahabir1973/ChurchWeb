@@ -8,6 +8,12 @@ const fs = require('fs');
 const crypto = require('crypto');
 const OpenAI = require('openai');
 const { Pool } = require('pg');
+const postmark = require('postmark');
+
+// Postmark email client
+const postmarkClient = process.env.POSTMARK_API_TOKEN 
+    ? new postmark.ServerClient(process.env.POSTMARK_API_TOKEN)
+    : null;
 
 // Config file paths
 const CONFIG_DIR = path.join(__dirname, 'config');
@@ -2034,7 +2040,90 @@ function generatePortalToken() {
     return crypto.randomBytes(32).toString('hex');
 }
 
-// Request magic link (sends email in production, returns token in dev)
+// Send magic link email via Postmark
+async function sendMagicLinkEmail(toEmail, accessUrl, churchName) {
+    if (!postmarkClient) {
+        console.log('Postmark not configured, skipping email send');
+        return false;
+    }
+    
+    const baseUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+        : 'http://localhost:5000';
+    
+    const fullAccessUrl = `${baseUrl}${accessUrl}`;
+    
+    try {
+        await postmarkClient.sendEmail({
+            From: 'support@churchwebglobal.com',
+            To: toEmail,
+            Subject: 'Your Church Web Global Portal Access Link',
+            HtmlBody: `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: #6B46C1; margin-bottom: 10px;">Church Web Global</h1>
+    </div>
+    
+    <div style="background: linear-gradient(135deg, #6B46C1 0%, #D946A6 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
+        <h2 style="color: white; margin: 0 0 15px 0;">Access Your Website Portal</h2>
+        <p style="color: rgba(255,255,255,0.9); margin: 0;">Click the button below to securely access your church website dashboard.</p>
+    </div>
+    
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="${fullAccessUrl}" style="display: inline-block; background: #6B46C1; color: white; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-weight: 600; font-size: 16px;">Access My Portal</a>
+    </div>
+    
+    <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <p style="margin: 0 0 10px 0; color: #666;"><strong>Security Notice:</strong></p>
+        <ul style="margin: 0; padding-left: 20px; color: #666;">
+            <li>This link expires in 30 minutes</li>
+            <li>Can only be used once</li>
+            <li>If you didn't request this, please ignore this email</li>
+        </ul>
+    </div>
+    
+    <p style="color: #666; font-size: 14px;">If the button doesn't work, copy and paste this link into your browser:</p>
+    <p style="word-break: break-all; background: #f1f1f1; padding: 10px; border-radius: 4px; font-size: 12px;">${fullAccessUrl}</p>
+    
+    <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+    
+    <div style="text-align: center; color: #999; font-size: 12px;">
+        <p>Church Web Global - Professional Websites for Churches</p>
+        <p>Questions? Contact us at support@churchwebglobal.com</p>
+    </div>
+</body>
+</html>
+            `,
+            TextBody: `
+Church Web Global - Portal Access
+
+Click the link below to access your church website portal:
+${fullAccessUrl}
+
+This link expires in 30 minutes and can only be used once.
+
+If you didn't request this access link, please ignore this email.
+
+Questions? Contact us at support@churchwebglobal.com
+            `,
+            MessageStream: 'outbound'
+        });
+        
+        console.log(`Magic link email sent to ${toEmail}`);
+        return true;
+    } catch (error) {
+        console.error('Failed to send magic link email:', error);
+        return false;
+    }
+}
+
+// Request magic link (sends email via Postmark)
 app.post('/api/client/request-access', async (req, res) => {
     try {
         const { email } = req.body;
@@ -2050,9 +2139,11 @@ app.post('/api/client/request-access', async (req, res) => {
             // Don't reveal if email exists or not for security
             return res.json({ 
                 success: true, 
-                message: 'If this email is registered, you will receive access instructions.' 
+                message: 'If this email is registered, you will receive an access link via email.' 
             });
         }
+        
+        const client = clientResult.rows[0];
         
         // Generate access token
         const token = generatePortalToken();
@@ -2061,20 +2152,27 @@ app.post('/api/client/request-access', async (req, res) => {
         portalSessions.set(token, {
             email: email.toLowerCase(),
             expiresAt,
-            clientId: clientResult.rows[0].id
+            clientId: client.id
         });
         
-        // In development, return the token directly
-        // In production, this would send an email with the magic link
         const accessUrl = `/portal?token=${token}`;
         
         console.log(`Portal access link generated for ${email}: ${accessUrl}`);
         
+        // Send email via Postmark
+        const emailSent = await sendMagicLinkEmail(email, accessUrl, client.church_name);
+        
+        // In development mode, also return the token for testing
+        const isDev = process.env.NODE_ENV !== 'production';
+        
         res.json({ 
             success: true, 
-            message: 'Access link generated. Check your email.',
-            // Only include in development mode
-            ...(process.env.NODE_ENV !== 'production' && { 
+            message: emailSent 
+                ? 'Access link sent to your email. Please check your inbox.' 
+                : 'Access link generated. Check your email.',
+            emailSent,
+            // Only include in development mode for testing
+            ...(isDev && { 
                 devAccessUrl: accessUrl,
                 devToken: token 
             })
@@ -2361,14 +2459,312 @@ app.post('/api/admin/import-duda-clients', requireAdmin, async (req, res) => {
     }
 });
 
-// Get all clients (admin)
+// Get all clients (admin) with pagination and search
 app.get('/api/admin/clients', requireAdmin, async (req, res) => {
     try {
-        const clients = await getAllClientsFromDB();
-        res.json({ success: true, clients });
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const search = req.query.search || '';
+        const filter = req.query.filter || 'all';
+        const offset = (page - 1) * limit;
+        
+        let whereClause = '';
+        const params = [];
+        let paramIndex = 1;
+        
+        if (search) {
+            whereClause = `WHERE (LOWER(email) LIKE $${paramIndex} OR LOWER(church_name) LIKE $${paramIndex})`;
+            params.push(`%${search.toLowerCase()}%`);
+            paramIndex++;
+        }
+        
+        if (filter === 'legacy') {
+            whereClause += (whereClause ? ' AND' : 'WHERE') + ` is_legacy = true`;
+        } else if (filter === 'new') {
+            whereClause += (whereClause ? ' AND' : 'WHERE') + ` is_legacy = false`;
+        }
+        
+        const countResult = await dbQuery(`SELECT COUNT(*) FROM clients ${whereClause}`, params);
+        const total = parseInt(countResult.rows[0].count);
+        
+        params.push(limit, offset);
+        const result = await dbQuery(`
+            SELECT c.*, 
+                   (SELECT COUNT(*) FROM sites WHERE client_id = c.id) as site_count
+            FROM clients c
+            ${whereClause}
+            ORDER BY c.created_at DESC
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `, params);
+        
+        res.json({ success: true, clients: result.rows, total, page, limit });
     } catch (error) {
         console.error('Get clients error:', error);
         res.status(500).json({ success: false, error: 'Failed to get clients' });
+    }
+});
+
+// Add new client (admin)
+app.post('/api/admin/clients', requireAdmin, async (req, res) => {
+    try {
+        const { email, firstName, lastName, churchName, phone } = req.body;
+        
+        if (!email) {
+            return res.status(400).json({ success: false, error: 'Email is required' });
+        }
+        
+        const existing = await dbQuery('SELECT id FROM clients WHERE LOWER(email) = $1', [email.toLowerCase()]);
+        if (existing.rows.length > 0) {
+            return res.status(400).json({ success: false, error: 'Client already exists' });
+        }
+        
+        await dbQuery(
+            `INSERT INTO clients (email, first_name, last_name, church_name, phone)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [email.toLowerCase(), firstName, lastName, churchName, phone]
+        );
+        
+        res.json({ success: true, message: 'Client added' });
+    } catch (error) {
+        console.error('Add client error:', error);
+        res.status(500).json({ success: false, error: 'Failed to add client' });
+    }
+});
+
+// Get all sites (admin) with pagination
+app.get('/api/admin/sites', requireAdmin, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const search = req.query.search || '';
+        const filter = req.query.filter || 'all';
+        const offset = (page - 1) * limit;
+        
+        let whereClause = '';
+        const params = [];
+        let paramIndex = 1;
+        
+        if (search) {
+            whereClause = `WHERE (LOWER(s.site_name) LIKE $${paramIndex} OR LOWER(s.church_name) LIKE $${paramIndex})`;
+            params.push(`%${search.toLowerCase()}%`);
+            paramIndex++;
+        }
+        
+        if (filter === 'published') {
+            whereClause += (whereClause ? ' AND' : 'WHERE') + ` s.is_published = true`;
+        } else if (filter === 'unpublished') {
+            whereClause += (whereClause ? ' AND' : 'WHERE') + ` s.is_published = false`;
+        }
+        
+        const countResult = await dbQuery(`SELECT COUNT(*) FROM sites s ${whereClause}`, params);
+        const total = parseInt(countResult.rows[0].count);
+        
+        params.push(limit, offset);
+        const result = await dbQuery(`
+            SELECT s.*, c.email as client_email
+            FROM sites s
+            LEFT JOIN clients c ON s.client_id = c.id
+            ${whereClause}
+            ORDER BY s.created_at DESC
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `, params);
+        
+        res.json({ success: true, sites: result.rows, total, page, limit });
+    } catch (error) {
+        console.error('Get sites error:', error);
+        res.status(500).json({ success: false, error: 'Failed to get sites' });
+    }
+});
+
+// Get all trials (admin) with filter
+app.get('/api/admin/trials', requireAdmin, async (req, res) => {
+    try {
+        const filter = req.query.filter || 'active';
+        const now = new Date().toISOString();
+        
+        let whereClause = '';
+        if (filter === 'active') {
+            whereClause = `WHERE has_paid = false AND trial_expiry > '${now}'`;
+        } else if (filter === 'expiring') {
+            const threeDays = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+            whereClause = `WHERE has_paid = false AND trial_expiry > '${now}' AND trial_expiry <= '${threeDays}'`;
+        } else if (filter === 'expired') {
+            whereClause = `WHERE has_paid = false AND trial_expiry <= '${now}'`;
+        } else if (filter === 'upgraded') {
+            whereClause = `WHERE has_paid = true`;
+        }
+        
+        const result = await dbQuery(`
+            SELECT * FROM trials 
+            ${whereClause}
+            ORDER BY trial_expiry ASC
+        `);
+        
+        res.json({ success: true, trials: result.rows });
+    } catch (error) {
+        console.error('Get trials error:', error);
+        res.status(500).json({ success: false, error: 'Failed to get trials' });
+    }
+});
+
+// Extend trial (admin)
+app.post('/api/admin/extend-trial', requireAdmin, async (req, res) => {
+    try {
+        const { email, siteName, days } = req.body;
+        
+        if (!email || !siteName || !days) {
+            return res.status(400).json({ success: false, error: 'Email, site name, and days are required' });
+        }
+        
+        const result = await dbQuery(
+            `UPDATE trials 
+             SET trial_expiry = trial_expiry + INTERVAL '1 day' * $1,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE LOWER(email) = $2 AND site_name = $3
+             RETURNING *`,
+            [days, email.toLowerCase(), siteName]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Trial not found' });
+        }
+        
+        res.json({ success: true, trial: result.rows[0] });
+    } catch (error) {
+        console.error('Extend trial error:', error);
+        res.status(500).json({ success: false, error: 'Failed to extend trial' });
+    }
+});
+
+// Upgrade trial to paid (admin)
+app.post('/api/admin/upgrade-trial', requireAdmin, async (req, res) => {
+    try {
+        const { email, siteName } = req.body;
+        
+        if (!email || !siteName) {
+            return res.status(400).json({ success: false, error: 'Email and site name are required' });
+        }
+        
+        // Update trial record
+        await dbQuery(
+            `UPDATE trials 
+             SET has_paid = true, has_publish_access = true, upgraded_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+             WHERE LOWER(email) = $1 AND site_name = $2`,
+            [email.toLowerCase(), siteName]
+        );
+        
+        // Grant PUBLISH permission in DUDA
+        await callDudaAPI('POST', `/accounts/${encodeURIComponent(email)}/sites/${siteName}/permissions`, {
+            permissions: ['EDIT', 'PUBLISH', 'DEV_MODE', 'STATS_TAB', 'SEO', 'BLOG', 'CUSTOM_DOMAIN', 'BACKUPS']
+        });
+        
+        res.json({ success: true, message: 'Trial upgraded to paid' });
+    } catch (error) {
+        console.error('Upgrade trial error:', error);
+        res.status(500).json({ success: false, error: 'Failed to upgrade trial' });
+    }
+});
+
+// Get dashboard stats (admin)
+app.get('/api/admin/stats', requireAdmin, async (req, res) => {
+    try {
+        const now = new Date().toISOString();
+        
+        const [clientsRes, sitesRes, trialsRes, paidRes, legacyRes, recentRes] = await Promise.all([
+            dbQuery('SELECT COUNT(*) FROM clients'),
+            dbQuery('SELECT COUNT(*) FROM sites'),
+            dbQuery(`SELECT COUNT(*) FROM trials WHERE has_paid = false AND trial_expiry > '${now}'`),
+            dbQuery('SELECT COUNT(*) FROM trials WHERE has_paid = true'),
+            dbQuery('SELECT COUNT(*) FROM clients WHERE is_legacy = true'),
+            dbQuery('SELECT * FROM clients ORDER BY created_at DESC LIMIT 5')
+        ]);
+        
+        res.json({
+            success: true,
+            totalClients: parseInt(clientsRes.rows[0].count),
+            totalSites: parseInt(sitesRes.rows[0].count),
+            activeTrials: parseInt(trialsRes.rows[0].count),
+            paidAccounts: parseInt(paidRes.rows[0].count),
+            legacyClients: parseInt(legacyRes.rows[0].count),
+            recentClients: recentRes.rows
+        });
+    } catch (error) {
+        console.error('Get stats error:', error);
+        res.status(500).json({ success: false, error: 'Failed to get stats' });
+    }
+});
+
+// API status check (admin)
+app.get('/api/admin/api-status', requireAdmin, async (req, res) => {
+    try {
+        const duda = !!DUDA_API_USER && !!DUDA_API_PASSWORD;
+        const whmcs = !!WHMCS_API_URL;
+        const postmark = !!process.env.POSTMARK_API_TOKEN;
+        const database = !!process.env.DATABASE_URL;
+        
+        res.json({ success: true, duda, whmcs, postmark, database });
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Failed to check status' });
+    }
+});
+
+// Send test email (admin)
+app.post('/api/admin/send-test-email', requireAdmin, async (req, res) => {
+    try {
+        const { from, to, subject, body } = req.body;
+        
+        if (!postmarkClient) {
+            return res.status(400).json({ success: false, error: 'Postmark not configured' });
+        }
+        
+        await postmarkClient.sendEmail({
+            From: from || 'support@churchwebglobal.com',
+            To: to,
+            Subject: subject || 'Test Email from Church Web Global',
+            TextBody: body || 'This is a test email from Church Web Global admin panel.',
+            HtmlBody: `<p>${body || 'This is a test email from Church Web Global admin panel.'}</p>`,
+            MessageStream: 'outbound'
+        });
+        
+        res.json({ success: true, message: 'Email sent' });
+    } catch (error) {
+        console.error('Send test email error:', error);
+        res.status(500).json({ success: false, error: 'Failed to send email: ' + error.message });
+    }
+});
+
+// Send portal access link (admin)
+app.post('/api/admin/send-access-link', requireAdmin, async (req, res) => {
+    try {
+        const { email } = req.body;
+        
+        if (!email) {
+            return res.status(400).json({ success: false, error: 'Email is required' });
+        }
+        
+        const clientResult = await dbQuery('SELECT * FROM clients WHERE LOWER(email) = $1', [email.toLowerCase()]);
+        
+        if (clientResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Client not found' });
+        }
+        
+        const client = clientResult.rows[0];
+        const token = generatePortalToken();
+        const expiresAt = Date.now() + (30 * 60 * 1000);
+        
+        portalSessions.set(token, {
+            email: email.toLowerCase(),
+            expiresAt,
+            clientId: client.id
+        });
+        
+        const accessUrl = `/portal?token=${token}`;
+        const emailSent = await sendMagicLinkEmail(email, accessUrl, client.church_name);
+        
+        res.json({ success: true, emailSent, accessUrl });
+    } catch (error) {
+        console.error('Send access link error:', error);
+        res.status(500).json({ success: false, error: 'Failed to send access link' });
     }
 });
 
