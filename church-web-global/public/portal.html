@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Portal - Church Web Global</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles-new.css">
+    <style>
+        .portal-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        
+        .portal-header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-top: 2rem;
+        }
+        
+        .portal-header h1 {
+            font-family: var(--font-accent);
+            font-size: 2.5rem;
+            color: var(--color-navy-dark);
+            margin-bottom: 0.5rem;
+        }
+        
+        .portal-header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        
+        .login-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .login-card h2 {
+            font-family: var(--font-accent);
+            font-size: 1.5rem;
+            color: var(--color-navy-dark);
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+        }
+        
+        .btn-primary {
+            background: var(--gradient-hero);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(107, 70, 193, 0.3);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .sites-list {
+            display: grid;
+            gap: 1rem;
+        }
+        
+        .site-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .site-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
+        }
+        
+        .site-info h3 {
+            font-family: var(--font-accent);
+            font-size: 1.25rem;
+            color: var(--color-navy-dark);
+            margin-bottom: 0.25rem;
+        }
+        
+        .site-info p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .site-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+        
+        .status-paid {
+            background: #dcfce7;
+            color: #166534;
+        }
+        
+        .status-trial {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-expired {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .btn-edit {
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            padding: 0.625rem 1.25rem;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .btn-edit:hover {
+            background: #5a38a8;
+        }
+        
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--color-primary);
+            text-decoration: none;
+            font-weight: 500;
+            margin-bottom: 1rem;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .signup-link {
+            text-align: center;
+            margin-top: 1.5rem;
+            color: #666;
+        }
+        
+        .signup-link a {
+            color: var(--color-primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .signup-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="portal-container">
+        <div class="portal-header">
+            <h1>Client Portal</h1>
+            <p>Access and edit your church website</p>
+        </div>
+        
+        <div id="login-section">
+            <div class="login-card">
+                <h2>Login to Your Account</h2>
+                <div id="error-message" class="error-message"></div>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" name="email" required placeholder="your@email.com">
+                    </div>
+                    <button type="submit" class="btn-primary" id="login-btn">
+                        Access My Sites
+                    </button>
+                </form>
+                <div class="signup-link">
+                    Don't have an account? <a href="/funnel">Create your church website</a>
+                </div>
+            </div>
+        </div>
+        
+        <div id="sites-section" class="hidden">
+            <a href="#" class="back-link" id="back-to-login">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                Back to Login
+            </a>
+            
+            <div class="login-card">
+                <h2>Your Websites</h2>
+                <p style="color: #666; margin-bottom: 1.5rem;">Select a site to edit</p>
+                
+                <div id="sites-list" class="sites-list">
+                    <div class="loading">Loading your sites...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const loginSection = document.getElementById('login-section');
+        const sitesSection = document.getElementById('sites-section');
+        const loginForm = document.getElementById('login-form');
+        const loginBtn = document.getElementById('login-btn');
+        const errorMessage = document.getElementById('error-message');
+        const sitesList = document.getElementById('sites-list');
+        const backToLogin = document.getElementById('back-to-login');
+        
+        let currentEmail = '';
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+        
+        function hideError() {
+            errorMessage.style.display = 'none';
+        }
+        
+        function getStatusBadge(site) {
+            if (site.hasPaid) {
+                return '<span class="site-status status-paid">Active</span>';
+            } else if (site.daysRemaining > 0) {
+                return `<span class="site-status status-trial">${site.daysRemaining} days left</span>`;
+            } else if (site.trialExpiry) {
+                return '<span class="site-status status-expired">Trial Expired</span>';
+            }
+            return '<span class="site-status status-paid">Active</span>';
+        }
+        
+        function renderSites(sites) {
+            if (sites.length === 0) {
+                sitesList.innerHTML = '<p style="text-align: center; color: #666;">No sites found.</p>';
+                return;
+            }
+            
+            sitesList.innerHTML = sites.map(site => `
+                <div class="site-card">
+                    <div class="site-info">
+                        <h3>${site.churchName || site.siteName}</h3>
+                        <p>${site.siteName}</p>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        ${getStatusBadge(site)}
+                        <button class="btn-edit" onclick="openEditor('${site.siteName}')">
+                            Edit Site
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError();
+            
+            const email = document.getElementById('email').value;
+            if (!email) return;
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Loading...';
+            
+            try {
+                const response = await fetch('/api/client/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Login failed');
+                }
+                
+                currentEmail = email;
+                
+                if (data.sites && data.sites.length > 0) {
+                    loginSection.classList.add('hidden');
+                    sitesSection.classList.remove('hidden');
+                    renderSites(data.sites);
+                } else {
+                    showError('No sites found for this account.');
+                }
+                
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Access My Sites';
+            }
+        });
+        
+        async function openEditor(siteName) {
+            try {
+                const button = event.target;
+                button.disabled = true;
+                button.textContent = 'Opening...';
+                
+                const response = await fetch('/api/client/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: currentEmail, siteName })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to open editor');
+                }
+                
+                if (data.editorUrl) {
+                    window.open(data.editorUrl, '_blank');
+                }
+                
+            } catch (error) {
+                alert(error.message);
+            } finally {
+                event.target.disabled = false;
+                event.target.textContent = 'Edit Site';
+            }
+        }
+        
+        backToLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            sitesSection.classList.add('hidden');
+            loginSection.classList.remove('hidden');
+            currentEmail = '';
+        });
+    </script>
+</body>
+</html>

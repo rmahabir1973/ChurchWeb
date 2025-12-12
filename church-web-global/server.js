@@ -7,6 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const OpenAI = require('openai');
+const { Pool } = require('pg');
 
 // Config file paths
 const CONFIG_DIR = path.join(__dirname, 'config');
@@ -43,6 +44,194 @@ function hashPassword(password) {
 
 // Session storage (in-memory for simplicity)
 const adminSessions = new Map();
+
+// PostgreSQL Database Connection
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL
+});
+
+// Database helper functions
+async function dbQuery(text, params = []) {
+    try {
+        const result = await pool.query(text, params);
+        return result;
+    } catch (error) {
+        console.error('Database query error:', error);
+        throw error;
+    }
+}
+
+// Initialize database tables (runs on startup)
+async function initializeDatabase() {
+    try {
+        await dbQuery(`
+            CREATE TABLE IF NOT EXISTS clients (
+                id SERIAL PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                first_name VARCHAR(100),
+                last_name VARCHAR(100),
+                church_name VARCHAR(255),
+                phone VARCHAR(50),
+                whmcs_client_id INTEGER,
+                duda_account_created BOOLEAN DEFAULT FALSE,
+                is_legacy BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await dbQuery(`
+            CREATE TABLE IF NOT EXISTS sites (
+                id SERIAL PRIMARY KEY,
+                site_name VARCHAR(255) UNIQUE NOT NULL,
+                client_id INTEGER REFERENCES clients(id),
+                template_id VARCHAR(100),
+                church_name VARCHAR(255),
+                preview_url TEXT,
+                is_published BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await dbQuery(`
+            CREATE TABLE IF NOT EXISTS trials (
+                id SERIAL PRIMARY KEY,
+                client_id INTEGER REFERENCES clients(id),
+                site_id INTEGER REFERENCES sites(id),
+                email VARCHAR(255) NOT NULL,
+                site_name VARCHAR(255) NOT NULL,
+                trial_start TIMESTAMP WITH TIME ZONE NOT NULL,
+                trial_expiry TIMESTAMP WITH TIME ZONE NOT NULL,
+                has_paid BOOLEAN DEFAULT FALSE,
+                has_publish_access BOOLEAN DEFAULT FALSE,
+                upgraded_at TIMESTAMP WITH TIME ZONE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(email, site_name)
+            )
+        `);
+        console.log('Database tables initialized');
+    } catch (error) {
+        console.error('Database initialization error:', error);
+    }
+}
+
+// Client DB operations
+async function getOrCreateClient(email, data = {}) {
+    const existing = await dbQuery('SELECT * FROM clients WHERE email = $1', [email.toLowerCase()]);
+    if (existing.rows.length > 0) {
+        return existing.rows[0];
+    }
+    const result = await dbQuery(
+        `INSERT INTO clients (email, first_name, last_name, church_name, phone, duda_account_created)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [email.toLowerCase(), data.firstName || null, data.lastName || null, 
+         data.churchName || null, data.phone || null, data.dudaAccountCreated || false]
+    );
+    return result.rows[0];
+}
+
+async function updateClient(email, data) {
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+    
+    if (data.dudaAccountCreated !== undefined) {
+        updates.push(`duda_account_created = $${paramIndex++}`);
+        values.push(data.dudaAccountCreated);
+    }
+    if (data.whmcsClientId !== undefined) {
+        updates.push(`whmcs_client_id = $${paramIndex++}`);
+        values.push(data.whmcsClientId);
+    }
+    if (data.isLegacy !== undefined) {
+        updates.push(`is_legacy = $${paramIndex++}`);
+        values.push(data.isLegacy);
+    }
+    
+    if (updates.length === 0) return null;
+    
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(email.toLowerCase());
+    
+    const result = await dbQuery(
+        `UPDATE clients SET ${updates.join(', ')} WHERE email = $${paramIndex} RETURNING *`,
+        values
+    );
+    return result.rows[0];
+}
+
+// Site DB operations
+async function getOrCreateSite(siteName, clientId, data = {}) {
+    const existing = await dbQuery('SELECT * FROM sites WHERE site_name = $1', [siteName]);
+    if (existing.rows.length > 0) {
+        return existing.rows[0];
+    }
+    const result = await dbQuery(
+        `INSERT INTO sites (site_name, client_id, template_id, church_name, preview_url)
+         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [siteName, clientId, data.templateId || null, data.churchName || null, data.previewUrl || null]
+    );
+    return result.rows[0];
+}
+
+// Trial DB operations (replaces JSON file storage)
+async function getTrialFromDB(email, siteName = null) {
+    if (siteName) {
+        const result = await dbQuery(
+            'SELECT * FROM trials WHERE LOWER(email) = $1 AND site_name = $2',
+            [email.toLowerCase(), siteName]
+        );
+        return result.rows[0] || null;
+    }
+    // Return most recent trial for email
+    const result = await dbQuery(
+        'SELECT * FROM trials WHERE LOWER(email) = $1 ORDER BY trial_start DESC LIMIT 1',
+        [email.toLowerCase()]
+    );
+    return result.rows[0] || null;
+}
+
+async function saveTrialToDB(trialData) {
+    const existing = await getTrialFromDB(trialData.email, trialData.siteName);
+    
+    if (existing) {
+        const result = await dbQuery(
+            `UPDATE trials SET 
+             has_paid = $1, has_publish_access = $2, 
+             upgraded_at = $3, updated_at = CURRENT_TIMESTAMP
+             WHERE LOWER(email) = $4 AND site_name = $5 RETURNING *`,
+            [trialData.hasPaid || false, trialData.hasPublishAccess || false,
+             trialData.hasPaid ? new Date() : null, trialData.email.toLowerCase(), trialData.siteName]
+        );
+        return result.rows[0];
+    }
+    
+    const result = await dbQuery(
+        `INSERT INTO trials (email, site_name, trial_start, trial_expiry, has_paid, has_publish_access, client_id, site_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        [trialData.email.toLowerCase(), trialData.siteName, 
+         trialData.trialStart, trialData.trialExpiry,
+         trialData.hasPaid || false, trialData.hasPublishAccess || false,
+         trialData.clientId || null, trialData.siteId || null]
+    );
+    return result.rows[0];
+}
+
+async function getAllClientsFromDB() {
+    const result = await dbQuery('SELECT * FROM clients ORDER BY created_at DESC');
+    return result.rows;
+}
+
+async function getClientSitesFromDB(email) {
+    const result = await dbQuery(`
+        SELECT s.*, t.trial_start, t.trial_expiry, t.has_paid, t.has_publish_access
+        FROM sites s
+        LEFT JOIN trials t ON s.site_name = t.site_name
+        WHERE s.client_id = (SELECT id FROM clients WHERE LOWER(email) = $1)
+        ORDER BY s.created_at DESC
+    `, [email.toLowerCase()]);
+    return result.rows;
+}
 
 // Initialize OpenAI client (uses Replit AI Integrations)
 let openai = null;
@@ -1588,51 +1777,22 @@ app.delete('/api/admin/templates/:index', requireAdmin, (req, res) => {
 
 const TRIAL_DAYS = 14;
 
-// Helper: Get trial info for a user and site
-function getTrialInfo(email, siteName = null) {
-    const trials = loadConfig(TRIALS_CONFIG, { trials: [] });
-    if (siteName) {
-        return trials.trials.find(t => 
-            t.email.toLowerCase() === email.toLowerCase() && 
-            t.siteName === siteName
-        );
-    }
-    // Return most recent trial for email if no siteName specified
-    return trials.trials
-        .filter(t => t.email.toLowerCase() === email.toLowerCase())
-        .sort((a, b) => new Date(b.trialStart) - new Date(a.trialStart))[0];
-}
-
-// Helper: Save trial info (keyed by email + siteName)
-function saveTrialInfo(trialData) {
-    const trials = loadConfig(TRIALS_CONFIG, { trials: [] });
-    const existingIndex = trials.trials.findIndex(t => 
-        t.email.toLowerCase() === trialData.email.toLowerCase() &&
-        t.siteName === trialData.siteName
-    );
-    
-    if (existingIndex >= 0) {
-        trials.trials[existingIndex] = { ...trials.trials[existingIndex], ...trialData };
-    } else {
-        trials.trials.push(trialData);
-    }
-    
-    saveConfig(TRIALS_CONFIG, trials);
-    return trialData;
-}
-
-// Helper: Check if trial is expired
+// Helper: Check if trial is expired (works with both JSON and DB formats)
 function isTrialExpired(trial) {
-    if (!trial || !trial.trialExpiry) return true;
-    return new Date() > new Date(trial.trialExpiry);
+    if (!trial) return true;
+    const expiry = trial.trialExpiry || trial.trial_expiry;
+    if (!expiry) return true;
+    return new Date() > new Date(expiry);
 }
 
-// Helper: Calculate days remaining
+// Helper: Calculate days remaining (works with both JSON and DB formats)
 function getTrialDaysRemaining(trial) {
-    if (!trial || !trial.trialExpiry) return 0;
+    if (!trial) return 0;
+    const expiry = trial.trialExpiry || trial.trial_expiry;
+    if (!expiry) return 0;
     const now = new Date();
-    const expiry = new Date(trial.trialExpiry);
-    const diff = expiry - now;
+    const expiryDate = new Date(expiry);
+    const diff = expiryDate - now;
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
@@ -1645,8 +1805,8 @@ app.post('/api/trial/start', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Email and site name are required' });
         }
         
-        // Check if trial already exists for this email + site combination
-        let trial = getTrialInfo(email, siteName);
+        // Check if trial already exists for this email + site combination (use DB)
+        let trial = await getTrialFromDB(email, siteName);
         
         if (trial) {
             // Return existing trial info
@@ -1654,13 +1814,19 @@ app.post('/api/trial/start', async (req, res) => {
             return res.json({
                 success: true,
                 trial: {
-                    ...trial,
+                    email: trial.email,
+                    siteName: trial.site_name,
                     daysRemaining,
-                    isExpired: isTrialExpired(trial)
+                    isExpired: isTrialExpired(trial),
+                    hasPaid: trial.has_paid,
+                    hasPublishAccess: trial.has_publish_access
                 },
                 message: 'Trial already active'
             });
         }
+        
+        // Create or get client record
+        const client = await getOrCreateClient(email, { churchName });
         
         // Create DUDA account for the user
         console.log(`Creating DUDA account for: ${email}`);
@@ -1671,6 +1837,8 @@ app.post('/api/trial/start', async (req, res) => {
         // Account might already exist (which is fine)
         if (!accountResult.success && !accountResult.error?.message?.includes('already exists')) {
             console.log('DUDA account creation result:', accountResult);
+        } else {
+            await updateClient(email, { dudaAccountCreated: true });
         }
         
         // Grant EDIT-only permissions (no PUBLISH during trial)
@@ -1684,27 +1852,34 @@ app.post('/api/trial/start', async (req, res) => {
             console.error('Permission grant failed:', permissionsResult.error);
         }
         
-        // Save trial info
+        // Create site record
+        const site = await getOrCreateSite(siteName, client.id, { churchName });
+        
+        // Save trial info to database
         const trialStart = new Date();
         const trialExpiry = new Date(trialStart);
         trialExpiry.setDate(trialExpiry.getDate() + TRIAL_DAYS);
         
-        trial = saveTrialInfo({
+        trial = await saveTrialToDB({
             email: email.toLowerCase(),
             siteName,
-            churchName: churchName || '',
             trialStart: trialStart.toISOString(),
             trialExpiry: trialExpiry.toISOString(),
             hasPaid: false,
-            hasPublishAccess: false
+            hasPublishAccess: false,
+            clientId: client.id,
+            siteId: site.id
         });
         
         res.json({
             success: true,
             trial: {
-                ...trial,
+                email: trial.email,
+                siteName: trial.site_name,
                 daysRemaining: TRIAL_DAYS,
-                isExpired: false
+                isExpired: false,
+                hasPaid: false,
+                hasPublishAccess: false
             },
             message: `${TRIAL_DAYS}-day free trial started! You can edit your site but publishing requires a paid plan.`
         });
@@ -1724,13 +1899,13 @@ app.post('/api/trial/editor-link', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Email and site name are required' });
         }
         
-        // Check trial status
-        const trial = getTrialInfo(email, siteName);
+        // Check trial status from database
+        const trial = await getTrialFromDB(email, siteName);
         if (!trial) {
             return res.status(404).json({ success: false, error: 'No trial found. Please start a trial first.' });
         }
         
-        if (isTrialExpired(trial) && !trial.hasPaid) {
+        if (isTrialExpired(trial) && !trial.has_paid) {
             return res.status(403).json({ 
                 success: false, 
                 error: 'Trial expired. Please upgrade to continue editing.',
@@ -1741,7 +1916,7 @@ app.post('/api/trial/editor-link', async (req, res) => {
         // Ensure permissions are set (in case returning user)
         console.log(`Ensuring permissions for: ${email} -> ${siteName}`);
         await callDudaAPI('POST', `/accounts/${encodeURIComponent(email)}/sites/${siteName}/permissions`, {
-            permissions: trial.hasPaid 
+            permissions: trial.has_paid 
                 ? ['EDIT', 'PUBLISH', 'DEV_MODE', 'STATS_TAB', 'SEO', 'BLOG', 'CUSTOM_DOMAIN', 'BACKUPS']
                 : ['EDIT', 'DEV_MODE', 'STATS_TAB', 'SEO', 'BLOG']
         });
@@ -1759,8 +1934,8 @@ app.post('/api/trial/editor-link', async (req, res) => {
             success: true,
             editorUrl: ssoResult.data.url,
             daysRemaining: getTrialDaysRemaining(trial),
-            hasPaid: trial.hasPaid,
-            canPublish: trial.hasPublishAccess
+            hasPaid: trial.has_paid,
+            canPublish: trial.has_publish_access
         });
         
     } catch (error) {
@@ -1774,7 +1949,7 @@ app.get('/api/trial/status/:email', async (req, res) => {
     try {
         const email = decodeURIComponent(req.params.email);
         const siteName = req.query.siteName || null;
-        const trial = getTrialInfo(email, siteName);
+        const trial = await getTrialFromDB(email, siteName);
         
         if (!trial) {
             return res.json({ success: true, hasTrial: false });
@@ -1784,9 +1959,12 @@ app.get('/api/trial/status/:email', async (req, res) => {
             success: true,
             hasTrial: true,
             trial: {
-                ...trial,
+                email: trial.email,
+                siteName: trial.site_name,
                 daysRemaining: getTrialDaysRemaining(trial),
-                isExpired: isTrialExpired(trial)
+                isExpired: isTrialExpired(trial),
+                hasPaid: trial.has_paid,
+                hasPublishAccess: trial.has_publish_access
             }
         });
         
@@ -1824,17 +2002,13 @@ app.post('/api/trial/upgrade', async (req, res) => {
             // Continue anyway - they paid, we should update our records
         }
         
-        // Update trial record
-        const trial = getTrialInfo(email, siteName);
-        if (trial) {
-            saveTrialInfo({
-                ...trial,
-                hasPaid: true,
-                hasPublishAccess: true,
-                paidDate: new Date().toISOString(),
-                invoiceId
-            });
-        }
+        // Update trial record in database
+        await saveTrialToDB({
+            email: email.toLowerCase(),
+            siteName,
+            hasPaid: true,
+            hasPublishAccess: true
+        });
         
         res.json({
             success: true,
@@ -1845,6 +2019,224 @@ app.post('/api/trial/upgrade', async (req, res) => {
     } catch (error) {
         console.error('Trial upgrade error:', error);
         res.status(500).json({ success: false, error: 'Failed to upgrade trial' });
+    }
+});
+
+// ============================================
+// CLIENT PORTAL - For existing DUDA clients
+// ============================================
+
+// Get client's sites (for portal)
+app.get('/api/client/sites/:email', async (req, res) => {
+    try {
+        const email = decodeURIComponent(req.params.email);
+        
+        // Check if client exists in our database
+        const clientResult = await dbQuery('SELECT * FROM clients WHERE LOWER(email) = $1', [email.toLowerCase()]);
+        
+        if (clientResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Client not found' });
+        }
+        
+        const sites = await getClientSitesFromDB(email);
+        
+        res.json({
+            success: true,
+            client: clientResult.rows[0],
+            sites: sites.map(s => ({
+                siteName: s.site_name,
+                churchName: s.church_name,
+                previewUrl: s.preview_url,
+                isPublished: s.is_published,
+                hasPaid: s.has_paid,
+                hasPublishAccess: s.has_publish_access,
+                trialExpiry: s.trial_expiry,
+                daysRemaining: s.trial_expiry ? getTrialDaysRemaining({ trial_expiry: s.trial_expiry }) : null
+            }))
+        });
+        
+    } catch (error) {
+        console.error('Client sites error:', error);
+        res.status(500).json({ success: false, error: 'Failed to get client sites' });
+    }
+});
+
+// Client login - generate SSO link for existing client
+app.post('/api/client/login', async (req, res) => {
+    try {
+        const { email, siteName } = req.body;
+        
+        if (!email) {
+            return res.status(400).json({ success: false, error: 'Email is required' });
+        }
+        
+        // Check if client exists
+        const clientResult = await dbQuery('SELECT * FROM clients WHERE LOWER(email) = $1', [email.toLowerCase()]);
+        
+        if (clientResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'No account found with this email. Please sign up first.' });
+        }
+        
+        const client = clientResult.rows[0];
+        
+        // Get client's sites
+        const sites = await getClientSitesFromDB(email);
+        
+        if (sites.length === 0) {
+            return res.status(404).json({ success: false, error: 'No sites found for this account.' });
+        }
+        
+        // If siteName provided, get SSO for that site; otherwise return site list
+        if (siteName) {
+            const site = sites.find(s => s.site_name === siteName);
+            if (!site) {
+                return res.status(404).json({ success: false, error: 'Site not found' });
+            }
+            
+            // Ensure DUDA account exists
+            await callDudaAPI('POST', '/accounts/create', { account_name: email });
+            
+            // Grant permissions
+            const hasPaid = site.has_paid || false;
+            await callDudaAPI('POST', `/accounts/${encodeURIComponent(email)}/sites/${siteName}/permissions`, {
+                permissions: hasPaid 
+                    ? ['EDIT', 'PUBLISH', 'DEV_MODE', 'STATS_TAB', 'SEO', 'BLOG', 'CUSTOM_DOMAIN', 'BACKUPS']
+                    : ['EDIT', 'DEV_MODE', 'STATS_TAB', 'SEO', 'BLOG']
+            });
+            
+            // Generate SSO link
+            const ssoResult = await callDudaAPI('GET', `/accounts/sso/${encodeURIComponent(email)}/link?site_name=${siteName}&target=EDITOR`);
+            
+            if (!ssoResult.success || !ssoResult.data?.url) {
+                return res.status(500).json({ success: false, error: 'Failed to generate editor link' });
+            }
+            
+            return res.json({
+                success: true,
+                editorUrl: ssoResult.data.url,
+                site: {
+                    siteName: site.site_name,
+                    churchName: site.church_name,
+                    hasPaid: site.has_paid,
+                    canPublish: site.has_publish_access
+                }
+            });
+        }
+        
+        // Return list of sites for selection
+        res.json({
+            success: true,
+            client: {
+                email: client.email,
+                churchName: client.church_name
+            },
+            sites: sites.map(s => ({
+                siteName: s.site_name,
+                churchName: s.church_name,
+                previewUrl: s.preview_url,
+                hasPaid: s.has_paid
+            }))
+        });
+        
+    } catch (error) {
+        console.error('Client login error:', error);
+        res.status(500).json({ success: false, error: 'Failed to login' });
+    }
+});
+
+// ============================================
+// ADMIN: IMPORT EXISTING DUDA CLIENTS
+// ============================================
+
+// Import all existing accounts from DUDA
+app.post('/api/admin/import-duda-clients', requireAdmin, async (req, res) => {
+    try {
+        console.log('Starting DUDA client import...');
+        
+        // Fetch all accounts from DUDA
+        const accountsResult = await callDudaAPI('GET', '/accounts');
+        
+        if (!accountsResult.success) {
+            return res.status(500).json({ success: false, error: 'Failed to fetch DUDA accounts' });
+        }
+        
+        const accounts = accountsResult.data || [];
+        let imported = 0;
+        let skipped = 0;
+        let errors = [];
+        
+        for (const account of accounts) {
+            try {
+                const email = account.account_name || account.email;
+                if (!email) continue;
+                
+                // Check if already exists
+                const existing = await dbQuery('SELECT id FROM clients WHERE LOWER(email) = $1', [email.toLowerCase()]);
+                
+                if (existing.rows.length > 0) {
+                    skipped++;
+                    continue;
+                }
+                
+                // Import as legacy client
+                await dbQuery(
+                    `INSERT INTO clients (email, first_name, last_name, duda_account_created, is_legacy)
+                     VALUES ($1, $2, $3, true, true)`,
+                    [email.toLowerCase(), account.first_name || null, account.last_name || null]
+                );
+                
+                // Get their sites and import those too
+                const sitesResult = await callDudaAPI('GET', `/accounts/${encodeURIComponent(email)}/sites`);
+                if (sitesResult.success && sitesResult.data) {
+                    const clientResult = await dbQuery('SELECT id FROM clients WHERE LOWER(email) = $1', [email.toLowerCase()]);
+                    const clientId = clientResult.rows[0]?.id;
+                    
+                    for (const site of sitesResult.data) {
+                        const siteName = site.site_name;
+                        if (siteName && clientId) {
+                            // Check if site exists
+                            const existingSite = await dbQuery('SELECT id FROM sites WHERE site_name = $1', [siteName]);
+                            if (existingSite.rows.length === 0) {
+                                await dbQuery(
+                                    `INSERT INTO sites (site_name, client_id, church_name, is_published)
+                                     VALUES ($1, $2, $3, $4)`,
+                                    [siteName, clientId, site.site_business_info?.business_name || null, true]
+                                );
+                            }
+                        }
+                    }
+                }
+                
+                imported++;
+            } catch (err) {
+                errors.push({ account: account.account_name, error: err.message });
+            }
+        }
+        
+        console.log(`DUDA import complete: ${imported} imported, ${skipped} skipped, ${errors.length} errors`);
+        
+        res.json({
+            success: true,
+            message: `Import complete: ${imported} clients imported, ${skipped} already existed`,
+            imported,
+            skipped,
+            errors: errors.slice(0, 10) // Only show first 10 errors
+        });
+        
+    } catch (error) {
+        console.error('DUDA import error:', error);
+        res.status(500).json({ success: false, error: 'Failed to import DUDA clients' });
+    }
+});
+
+// Get all clients (admin)
+app.get('/api/admin/clients', requireAdmin, async (req, res) => {
+    try {
+        const clients = await getAllClientsFromDB();
+        res.json({ success: true, clients });
+    } catch (error) {
+        console.error('Get clients error:', error);
+        res.status(500).json({ success: false, error: 'Failed to get clients' });
     }
 });
 
@@ -1896,15 +2288,27 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
+app.get('/portal', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'portal.html'));
+});
+
 // ============================================
 // START SERVER
 // ============================================
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Church Web Global server running on port ${PORT}`);
-  console.log(`📍 Access at: http://localhost:${PORT}`);
-  console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`✅ DUDA API configured: ${!!DUDA_API_USER}`);
-  console.log(`🤖 DUDA MCP AI: ${!!DUDA_MCP_TOKEN}`);
-  console.log(`💳 WHMCS API: ${!!WHMCS_API_URL}`);
-});
+async function startServer() {
+    // Initialize database tables
+    await initializeDatabase();
+    
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Church Web Global server running on port ${PORT}`);
+      console.log(`📍 Access at: http://localhost:${PORT}`);
+      console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`✅ DUDA API configured: ${!!DUDA_API_USER}`);
+      console.log(`🤖 DUDA MCP AI: ${!!DUDA_MCP_TOKEN}`);
+      console.log(`💳 WHMCS API: ${!!WHMCS_API_URL}`);
+      console.log(`🗄️ Database: PostgreSQL connected`);
+    });
+}
+
+startServer().catch(console.error);
