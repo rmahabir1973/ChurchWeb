@@ -120,7 +120,9 @@ async function handleStep2Submit() {
         email: document.getElementById('church-email').value,
         phone: document.getElementById('church-phone').value,
         address: document.getElementById('church-address').value,
-        description: document.getElementById('church-description').value,
+        tagline: document.getElementById('church-tagline').value,
+        mission: document.getElementById('church-description').value,
+        story: document.getElementById('church-story').value,
         serviceTime: document.getElementById('service-time').value,
         pastorName: document.getElementById('pastor-name').value,
         denomination: document.getElementById('denomination').value
@@ -315,13 +317,25 @@ async function createSitePreview() {
     section.style.display = 'none';
 
     try {
+        // Build collection data for Replit1 from church info
+        const collectionData = {
+            collectionName: 'Replit1',
+            rows: [{
+                Welcome_Message: `Welcome to ${state.churchInfo.churchName}`,
+                tagline: state.churchInfo.tagline || `A community of faith in ${state.churchInfo.city || 'your city'}`,
+                About_short_blurb: state.churchInfo.mission || `${state.churchInfo.churchName} is a welcoming church community.`,
+                About_Story: state.churchInfo.story || `${state.churchInfo.churchName} was founded to serve our community and share the love of God with everyone who walks through our doors.`
+            }]
+        };
+
         const response = await fetch('/api/sites/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 templateId: state.selectedTemplate.template_id || state.selectedTemplate.id,
                 churchInfo: state.churchInfo,
-                pages: state.selectedPages
+                pages: state.selectedPages,
+                collectionData: collectionData
             })
         });
 

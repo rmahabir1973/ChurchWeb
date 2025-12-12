@@ -100,6 +100,12 @@ church-web-global/
 ```
 
 ## Recent Changes
+- December 12, 2024: Integrated funnel with DUDA Collections
+  - Added tagline and story fields to Step 2 form
+  - Site creation now populates both Content Library AND Replit1 collection
+  - Replit1 fields mapped: Welcome_Message, tagline, About_short_blurb, About_Story
+  - Template resolver supports both base_site_name and numeric template_id
+  
 - December 12, 2024: Complete landing page redesign
   - Created new modern SaaS-style landing page (index-new.html)
   - Built comprehensive CSS design system (styles-new.css)
