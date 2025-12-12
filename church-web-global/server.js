@@ -2026,8 +2026,142 @@ app.post('/api/trial/upgrade', async (req, res) => {
 // CLIENT PORTAL - For existing DUDA clients
 // ============================================
 
-// Get client's sites (for portal)
-app.get('/api/client/sites/:email', async (req, res) => {
+// Portal session tokens (in production, use Redis or database)
+const portalSessions = new Map();
+
+// Generate a secure token for magic link
+function generatePortalToken() {
+    return crypto.randomBytes(32).toString('hex');
+}
+
+// Request magic link (sends email in production, returns token in dev)
+app.post('/api/client/request-access', async (req, res) => {
+    try {
+        const { email } = req.body;
+        
+        if (!email) {
+            return res.status(400).json({ success: false, error: 'Email is required' });
+        }
+        
+        // Check if client exists
+        const clientResult = await dbQuery('SELECT * FROM clients WHERE LOWER(email) = $1', [email.toLowerCase()]);
+        
+        if (clientResult.rows.length === 0) {
+            // Don't reveal if email exists or not for security
+            return res.json({ 
+                success: true, 
+                message: 'If this email is registered, you will receive access instructions.' 
+            });
+        }
+        
+        // Generate access token
+        const token = generatePortalToken();
+        const expiresAt = Date.now() + (30 * 60 * 1000); // 30 minutes
+        
+        portalSessions.set(token, {
+            email: email.toLowerCase(),
+            expiresAt,
+            clientId: clientResult.rows[0].id
+        });
+        
+        // In development, return the token directly
+        // In production, this would send an email with the magic link
+        const accessUrl = `/portal?token=${token}`;
+        
+        console.log(`Portal access link generated for ${email}: ${accessUrl}`);
+        
+        res.json({ 
+            success: true, 
+            message: 'Access link generated. Check your email.',
+            // Only include in development mode
+            ...(process.env.NODE_ENV !== 'production' && { 
+                devAccessUrl: accessUrl,
+                devToken: token 
+            })
+        });
+        
+    } catch (error) {
+        console.error('Request access error:', error);
+        res.status(500).json({ success: false, error: 'Failed to process request' });
+    }
+});
+
+// Verify portal token and create session
+app.post('/api/client/verify-token', async (req, res) => {
+    try {
+        const { token } = req.body;
+        
+        if (!token) {
+            return res.status(400).json({ success: false, error: 'Token is required' });
+        }
+        
+        const session = portalSessions.get(token);
+        
+        if (!session) {
+            return res.status(401).json({ success: false, error: 'Invalid or expired access link' });
+        }
+        
+        if (Date.now() > session.expiresAt) {
+            portalSessions.delete(token);
+            return res.status(401).json({ success: false, error: 'Access link has expired. Please request a new one.' });
+        }
+        
+        // Generate a session token for subsequent requests
+        const sessionToken = generatePortalToken();
+        const sessionExpiry = Date.now() + (2 * 60 * 60 * 1000); // 2 hours
+        
+        portalSessions.set(sessionToken, {
+            email: session.email,
+            clientId: session.clientId,
+            expiresAt: sessionExpiry,
+            isSession: true
+        });
+        
+        // Delete the one-time access token
+        portalSessions.delete(token);
+        
+        res.json({
+            success: true,
+            sessionToken,
+            email: session.email
+        });
+        
+    } catch (error) {
+        console.error('Verify token error:', error);
+        res.status(500).json({ success: false, error: 'Failed to verify token' });
+    }
+});
+
+// Middleware to verify portal session
+function requirePortalSession(req, res, next) {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.replace('Bearer ', '');
+    
+    if (!token) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+    
+    const session = portalSessions.get(token);
+    
+    if (!session || !session.isSession) {
+        return res.status(401).json({ success: false, error: 'Invalid session' });
+    }
+    
+    if (Date.now() > session.expiresAt) {
+        portalSessions.delete(token);
+        return res.status(401).json({ success: false, error: 'Session expired. Please login again.' });
+    }
+    
+    req.portalUser = {
+        email: session.email,
+        clientId: session.clientId
+    };
+    
+    next();
+}
+
+// Get client's sites (for portal) - now requires authentication
+app.get('/api/client/sites/:email', requirePortalSession, async (req, res) => {
     try {
         const email = decodeURIComponent(req.params.email);
         
@@ -2061,86 +2195,84 @@ app.get('/api/client/sites/:email', async (req, res) => {
     }
 });
 
-// Client login - generate SSO link for existing client
-app.post('/api/client/login', async (req, res) => {
+// Client get sites - requires portal session
+app.post('/api/client/get-sites', requirePortalSession, async (req, res) => {
     try {
-        const { email, siteName } = req.body;
-        
-        if (!email) {
-            return res.status(400).json({ success: false, error: 'Email is required' });
-        }
-        
-        // Check if client exists
-        const clientResult = await dbQuery('SELECT * FROM clients WHERE LOWER(email) = $1', [email.toLowerCase()]);
-        
-        if (clientResult.rows.length === 0) {
-            return res.status(404).json({ success: false, error: 'No account found with this email. Please sign up first.' });
-        }
-        
-        const client = clientResult.rows[0];
+        const email = req.portalUser.email;
         
         // Get client's sites
         const sites = await getClientSitesFromDB(email);
         
-        if (sites.length === 0) {
-            return res.status(404).json({ success: false, error: 'No sites found for this account.' });
-        }
-        
-        // If siteName provided, get SSO for that site; otherwise return site list
-        if (siteName) {
-            const site = sites.find(s => s.site_name === siteName);
-            if (!site) {
-                return res.status(404).json({ success: false, error: 'Site not found' });
-            }
-            
-            // Ensure DUDA account exists
-            await callDudaAPI('POST', '/accounts/create', { account_name: email });
-            
-            // Grant permissions
-            const hasPaid = site.has_paid || false;
-            await callDudaAPI('POST', `/accounts/${encodeURIComponent(email)}/sites/${siteName}/permissions`, {
-                permissions: hasPaid 
-                    ? ['EDIT', 'PUBLISH', 'DEV_MODE', 'STATS_TAB', 'SEO', 'BLOG', 'CUSTOM_DOMAIN', 'BACKUPS']
-                    : ['EDIT', 'DEV_MODE', 'STATS_TAB', 'SEO', 'BLOG']
-            });
-            
-            // Generate SSO link
-            const ssoResult = await callDudaAPI('GET', `/accounts/sso/${encodeURIComponent(email)}/link?site_name=${siteName}&target=EDITOR`);
-            
-            if (!ssoResult.success || !ssoResult.data?.url) {
-                return res.status(500).json({ success: false, error: 'Failed to generate editor link' });
-            }
-            
-            return res.json({
-                success: true,
-                editorUrl: ssoResult.data.url,
-                site: {
-                    siteName: site.site_name,
-                    churchName: site.church_name,
-                    hasPaid: site.has_paid,
-                    canPublish: site.has_publish_access
-                }
-            });
-        }
-        
-        // Return list of sites for selection
         res.json({
             success: true,
-            client: {
-                email: client.email,
-                churchName: client.church_name
-            },
+            email,
             sites: sites.map(s => ({
                 siteName: s.site_name,
                 churchName: s.church_name,
                 previewUrl: s.preview_url,
-                hasPaid: s.has_paid
+                hasPaid: s.has_paid,
+                hasPublishAccess: s.has_publish_access,
+                trialExpiry: s.trial_expiry,
+                daysRemaining: s.trial_expiry ? getTrialDaysRemaining({ trial_expiry: s.trial_expiry }) : null
             }))
         });
         
     } catch (error) {
-        console.error('Client login error:', error);
-        res.status(500).json({ success: false, error: 'Failed to login' });
+        console.error('Get sites error:', error);
+        res.status(500).json({ success: false, error: 'Failed to get sites' });
+    }
+});
+
+// Client open editor - requires portal session
+app.post('/api/client/open-editor', requirePortalSession, async (req, res) => {
+    try {
+        const email = req.portalUser.email;
+        const { siteName } = req.body;
+        
+        if (!siteName) {
+            return res.status(400).json({ success: false, error: 'Site name is required' });
+        }
+        
+        // Verify this site belongs to this client
+        const sites = await getClientSitesFromDB(email);
+        const site = sites.find(s => s.site_name === siteName);
+        
+        if (!site) {
+            return res.status(404).json({ success: false, error: 'Site not found or access denied' });
+        }
+        
+        // Ensure DUDA account exists
+        await callDudaAPI('POST', '/accounts/create', { account_name: email });
+        
+        // Grant permissions
+        const hasPaid = site.has_paid || false;
+        await callDudaAPI('POST', `/accounts/${encodeURIComponent(email)}/sites/${siteName}/permissions`, {
+            permissions: hasPaid 
+                ? ['EDIT', 'PUBLISH', 'DEV_MODE', 'STATS_TAB', 'SEO', 'BLOG', 'CUSTOM_DOMAIN', 'BACKUPS']
+                : ['EDIT', 'DEV_MODE', 'STATS_TAB', 'SEO', 'BLOG']
+        });
+        
+        // Generate SSO link
+        const ssoResult = await callDudaAPI('GET', `/accounts/sso/${encodeURIComponent(email)}/link?site_name=${siteName}&target=EDITOR`);
+        
+        if (!ssoResult.success || !ssoResult.data?.url) {
+            return res.status(500).json({ success: false, error: 'Failed to generate editor link' });
+        }
+        
+        res.json({
+            success: true,
+            editorUrl: ssoResult.data.url,
+            site: {
+                siteName: site.site_name,
+                churchName: site.church_name,
+                hasPaid: site.has_paid,
+                canPublish: site.has_publish_access
+            }
+        });
+        
+    } catch (error) {
+        console.error('Open editor error:', error);
+        res.status(500).json({ success: false, error: 'Failed to open editor' });
     }
 });
 

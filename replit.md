@@ -99,6 +99,14 @@ church-web-global/
 ```
 
 ## Recent Changes
+- December 12, 2024: Migrated to PostgreSQL Database
+  - Created clients, sites, and trials tables in PostgreSQL
+  - Trial data now stored in database instead of JSON files
+  - Added client portal at /portal for existing users to login and edit sites
+  - Added admin endpoint POST /api/admin/import-duda-clients to import 150+ existing clients
+  - Added GET /api/admin/clients to list all clients
+  - Added POST /api/client/login and GET /api/client/sites/:email for client portal
+
 - December 12, 2024: Added 14-Day Free Trial with DUDA SSO
   - Users get 14-day free trial with EDIT access (no PUBLISH)
   - SSO integration - users edit directly in white-labeled DUDA editor
