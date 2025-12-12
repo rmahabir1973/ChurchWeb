@@ -99,6 +99,22 @@ church-web-global/
 ```
 
 ## Recent Changes
+- December 12, 2024: Added Thumbnail Upload to Admin Templates
+  - File upload for template thumbnails (JPEG, PNG, GIF, WebP up to 5MB)
+  - Preview with remove button in template modal
+  - Multer configured for file handling
+  - Uploads stored in /public/uploads/
+
+- December 12, 2024: Added 14-Day Free Trial Banner to Funnel
+  - Prominent trial offer banner on Step 4 (Choose Your Plan)
+  - Updated button text to "Start My Free Trial"
+  - Clearer messaging about no payment required to start
+
+- December 12, 2024: Improved DUDA Client Import
+  - Added pagination support for fetching accounts
+  - Better error messages showing actual API errors
+  - Detailed server logging during import
+
 - December 12, 2024: Integrated Postmark Email Service
   - Added Postmark SDK for sending transactional emails
   - Magic-link portal authentication emails now sent via Postmark

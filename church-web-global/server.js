@@ -2435,14 +2435,41 @@ app.post('/api/admin/import-duda-clients', requireAdmin, async (req, res) => {
     try {
         console.log('Starting DUDA client import...');
         
-        // Fetch all accounts from DUDA
-        const accountsResult = await callDudaAPI('GET', '/accounts');
+        // Fetch all accounts from DUDA (with pagination support)
+        let allAccounts = [];
+        let offset = 0;
+        const limit = 100;
+        let hasMore = true;
         
-        if (!accountsResult.success) {
-            return res.status(500).json({ success: false, error: 'Failed to fetch DUDA accounts' });
+        while (hasMore) {
+            const accountsResult = await callDudaAPI('GET', `/accounts?limit=${limit}&offset=${offset}`);
+            console.log(`DUDA accounts fetch (offset=${offset}):`, accountsResult.success ? `Got ${(accountsResult.data || []).length} accounts` : accountsResult.error);
+            
+            if (!accountsResult.success) {
+                console.error('DUDA API error details:', accountsResult.error);
+                return res.status(500).json({ 
+                    success: false, 
+                    error: `Failed to fetch DUDA accounts: ${accountsResult.error || 'Unknown error'}` 
+                });
+            }
+            
+            const accounts = accountsResult.data || [];
+            allAccounts = allAccounts.concat(accounts);
+            
+            if (accounts.length < limit) {
+                hasMore = false;
+            } else {
+                offset += limit;
+            }
         }
         
-        const accounts = accountsResult.data || [];
+        const accounts = allAccounts;
+        console.log(`Total DUDA accounts fetched: ${accounts.length}`);
+        
+        if (accounts.length === 0) {
+            return res.json({ success: true, message: 'No DUDA accounts found to import', imported: 0, skipped: 0 });
+        }
+        
         let imported = 0;
         let skipped = 0;
         let errors = [];
