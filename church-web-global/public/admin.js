@@ -58,6 +58,7 @@ function setupEventListeners() {
     document.getElementById('add-template-btn').addEventListener('click', () => openTemplateModal());
     document.getElementById('cancel-modal').addEventListener('click', closeTemplateModal);
     document.getElementById('template-form').addEventListener('submit', handleTemplateSave);
+    document.getElementById('thumbnail-file').addEventListener('change', handleThumbnailUpload);
     document.getElementById('change-password-form').addEventListener('submit', handlePasswordChange);
     
     document.getElementById('template-modal').addEventListener('click', (e) => {
@@ -429,6 +430,10 @@ function openTemplateModal(index = -1) {
     form.reset();
     document.getElementById('template-index').value = index;
     
+    // Reset thumbnail preview
+    document.getElementById('thumbnail-preview').style.display = 'none';
+    document.getElementById('thumbnail-preview-img').src = '';
+    
     if (index >= 0 && templates[index]) {
         title.textContent = 'Edit Template';
         const t = templates[index];
@@ -437,6 +442,11 @@ function openTemplateModal(index = -1) {
         document.getElementById('template-description').value = t.description || '';
         document.getElementById('template-thumbnail').value = t.custom_thumbnail || '';
         document.getElementById('template-enabled').checked = t.enabled;
+        
+        // Show existing thumbnail preview if exists
+        if (t.custom_thumbnail) {
+            showThumbnailPreview(t.custom_thumbnail);
+        }
     } else {
         title.textContent = 'Add Template';
     }
@@ -517,6 +527,70 @@ async function deleteTemplate(index) {
     } catch (error) {
         alert('Failed to delete template');
     }
+}
+
+// Thumbnail upload handling
+async function handleThumbnailUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+        alert('Please upload an image file (JPEG, PNG, GIF, or WebP)');
+        e.target.value = '';
+        return;
+    }
+    
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        e.target.value = '';
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('thumbnail', file);
+    
+    try {
+        const response = await fetch('/api/admin/upload-thumbnail', {
+            method: 'POST',
+            headers: {
+                'X-Admin-Session': sessionId
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Set the URL in the input field
+            document.getElementById('template-thumbnail').value = data.url;
+            // Show preview
+            showThumbnailPreview(data.url);
+        } else {
+            alert(data.error || 'Upload failed');
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        alert('Failed to upload thumbnail');
+    }
+    
+    // Reset file input for future uploads
+    e.target.value = '';
+}
+
+function showThumbnailPreview(url) {
+    const preview = document.getElementById('thumbnail-preview');
+    const img = document.getElementById('thumbnail-preview-img');
+    img.src = url;
+    preview.style.display = 'block';
+}
+
+function removeThumbnail() {
+    document.getElementById('template-thumbnail').value = '';
+    document.getElementById('thumbnail-preview').style.display = 'none';
+    document.getElementById('thumbnail-preview-img').src = '';
 }
 
 async function handlePasswordChange(e) {
