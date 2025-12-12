@@ -903,6 +903,50 @@ body {
     color: var(--text-secondary);
 }
 
+/* Trial Offer Banner */
+.trial-offer-banner {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: linear-gradient(135deg, #f0e6ff 0%, #ffe6f5 100%);
+    border: 2px solid var(--primary-color);
+    border-radius: 16px;
+    padding: 24px 32px;
+    margin-bottom: 32px;
+    text-align: left;
+}
+
+.trial-offer-icon {
+    font-size: 48px;
+    flex-shrink: 0;
+}
+
+.trial-offer-content h3 {
+    font-size: 22px;
+    color: var(--primary-color);
+    margin-bottom: 8px;
+    font-weight: 700;
+}
+
+.trial-offer-content p {
+    color: var(--text-secondary);
+    font-size: 15px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+@media (max-width: 600px) {
+    .trial-offer-banner {
+        flex-direction: column;
+        text-align: center;
+        padding: 20px;
+    }
+    
+    .trial-offer-icon {
+        font-size: 40px;
+    }
+}
+
 .signup-form {
     max-width: 500px;
     margin: 32px auto 0;
