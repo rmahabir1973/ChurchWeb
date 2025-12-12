@@ -72,7 +72,10 @@ async function callDudaAPI(method, endpoint, data = null) {
       data: data
     };
     
-    console.log(`DUDA API Request: ${method} ${endpoint}`);
+    console.log(`DUDA API Request: ${method} ${config.url}`);
+    if (data) {
+      console.log(`DUDA API Request Body:`, JSON.stringify(data).substring(0, 500));
+    }
     const response = await axios(config);
     return { success: true, data: response.data };
   } catch (error) {
@@ -482,10 +485,47 @@ function getDefaultPageContent(pageName, churchInfo) {
 // SITE CREATION ENDPOINTS
 // ============================================
 
+// Cache for template mappings (base_site_name -> template_id)
+let templateCache = null;
+let templateCacheTime = 0;
+const TEMPLATE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Helper function to resolve template_id from either numeric ID or base_site_name
+async function resolveTemplateId(templateIdOrBaseName) {
+  // If it's already a numeric string or number, return as string
+  if (/^\d+$/.test(String(templateIdOrBaseName))) {
+    return String(templateIdOrBaseName);
+  }
+  
+  // Otherwise, look up by base_site_name
+  const now = Date.now();
+  if (!templateCache || (now - templateCacheTime) > TEMPLATE_CACHE_TTL) {
+    const result = await callDudaAPI('GET', '/sites/multiscreen/templates');
+    if (result.success && Array.isArray(result.data)) {
+      templateCache = {};
+      for (const t of result.data) {
+        if (t.base_site_name && t.template_id) {
+          templateCache[t.base_site_name] = String(t.template_id);
+        }
+      }
+      templateCacheTime = now;
+      console.log(`Template cache updated: ${Object.keys(templateCache).length} templates`);
+    }
+  }
+  
+  if (templateCache && templateCache[templateIdOrBaseName]) {
+    console.log(`Resolved template ${templateIdOrBaseName} -> ${templateCache[templateIdOrBaseName]}`);
+    return templateCache[templateIdOrBaseName];
+  }
+  
+  // Return original if not found
+  return templateIdOrBaseName;
+}
+
 // Create a new site using AI generation (preferred) or template
 app.post('/api/sites/create', async (req, res) => {
   try {
-    const { templateId, churchInfo, pages, useAI } = req.body;
+    const { templateId, churchInfo, pages, useAI, collectionData } = req.body;
     
     if (!churchInfo?.churchName) {
       return res.status(400).json({ success: false, error: 'Church name is required' });
@@ -513,6 +553,10 @@ app.post('/api/sites/create', async (req, res) => {
         message: 'Demo site created. Connect to DUDA API for full functionality.'
       });
     }
+    
+    // Resolve template_id (handles both numeric and base_site_name formats)
+    const resolvedTemplateId = await resolveTemplateId(templateId);
+    console.log(`Template ID: ${templateId} -> Resolved: ${resolvedTemplateId}`);
     
     // Try AI-powered site generation first (creates fully customized site)
     console.log('Attempting AI-powered site generation...');
@@ -579,7 +623,7 @@ app.post('/api/sites/create', async (req, res) => {
     // Fallback: Create from template
     console.log('Using template-based site creation...');
     const siteData = {
-      template_id: templateId,
+      template_id: resolvedTemplateId,
       default_domain_prefix: uniqueSiteName
     };
     
@@ -646,6 +690,17 @@ app.post('/api/sites/create', async (req, res) => {
       const contentResult = await callDudaAPI('POST', `/sites/multiscreen/${siteName}/content`, contentUpdate);
       console.log('Content update:', contentResult.success ? 'Success' : JSON.stringify(contentResult.error));
       
+      // Update custom collection if provided (e.g., Replit1)
+      let collectionResult = null;
+      if (collectionData && collectionData.collectionName && collectionData.rows) {
+        console.log(`Updating collection ${collectionData.collectionName}...`);
+        const formattedRows = collectionData.rows.map(row => ({
+          data: row.data || row
+        }));
+        collectionResult = await callDudaAPI('POST', `/sites/multiscreen/${siteName}/collection/${collectionData.collectionName}/row`, formattedRows);
+        console.log('Collection update:', collectionResult?.success ? 'Success' : JSON.stringify(collectionResult?.error));
+      }
+      
       const siteInfo = {
         ...result.data,
         churchInfo: churchInfo,
@@ -666,7 +721,8 @@ app.post('/api/sites/create', async (req, res) => {
         editorUrl: editorUrl,
         customizations: {
           businessInfo: businessResult.success,
-          content: contentResult.success
+          content: contentResult.success,
+          collection: collectionResult?.success || null
         }
       });
     } else {
@@ -781,6 +837,199 @@ app.post('/api/sites/:siteName/publish', async (req, res) => {
       res.json({ success: true, message: 'Site published successfully!' });
     } else {
       res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================
+// COLLECTIONS API ENDPOINTS
+// ============================================
+
+// Get all collections for a site
+app.get('/api/sites/:siteName/collections', async (req, res) => {
+  try {
+    const { siteName } = req.params;
+    const result = await callDudaAPI('GET', `/sites/multiscreen/${siteName}/collection`);
+    
+    if (result.success) {
+      res.json({ success: true, collections: result.data || [] });
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get collection details (schema and rows)
+app.get('/api/sites/:siteName/collections/:collectionName', async (req, res) => {
+  try {
+    const { siteName, collectionName } = req.params;
+    const result = await callDudaAPI('GET', `/sites/multiscreen/${siteName}/collection/${collectionName}`);
+    
+    if (result.success) {
+      res.json({ success: true, collection: result.data });
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get collection rows
+app.get('/api/sites/:siteName/collections/:collectionName/rows', async (req, res) => {
+  try {
+    const { siteName, collectionName } = req.params;
+    const result = await callDudaAPI('GET', `/sites/multiscreen/${siteName}/collection/${collectionName}/row`);
+    
+    if (result.success) {
+      res.json({ success: true, rows: result.data || [] });
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Create rows in a collection
+app.post('/api/sites/:siteName/collections/:collectionName/rows', async (req, res) => {
+  try {
+    const { siteName, collectionName } = req.params;
+    const { rows } = req.body;
+    
+    if (!rows || !Array.isArray(rows)) {
+      return res.status(400).json({ success: false, error: 'Rows array is required' });
+    }
+    
+    // Format rows for DUDA API - each row needs a data object
+    const formattedRows = rows.map(row => ({
+      data: row.data || row
+    }));
+    
+    const result = await callDudaAPI('POST', `/sites/multiscreen/${siteName}/collection/${collectionName}/row`, formattedRows);
+    
+    if (result.success) {
+      res.json({ success: true, data: result.data });
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update a specific row in a collection
+app.put('/api/sites/:siteName/collections/:collectionName/rows/:rowId', async (req, res) => {
+  try {
+    const { siteName, collectionName, rowId } = req.params;
+    const rowData = req.body;
+    
+    const result = await callDudaAPI('PUT', `/sites/multiscreen/${siteName}/collection/${collectionName}/row/${rowId}`, {
+      data: rowData.data || rowData
+    });
+    
+    if (result.success) {
+      res.json({ success: true, data: result.data });
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Delete a row from a collection
+app.delete('/api/sites/:siteName/collections/:collectionName/rows/:rowId', async (req, res) => {
+  try {
+    const { siteName, collectionName, rowId } = req.params;
+    
+    const result = await callDudaAPI('DELETE', `/sites/multiscreen/${siteName}/collection/${collectionName}/row/${rowId}`);
+    
+    if (result.success) {
+      res.json({ success: true, message: 'Row deleted successfully' });
+    } else {
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update both Content Library AND a collection in one call
+// This combines Business Info with custom collection data
+app.post('/api/sites/:siteName/update-all', async (req, res) => {
+  try {
+    const { siteName } = req.params;
+    const { contentLibrary, collection } = req.body;
+    
+    const results = {
+      contentLibrary: null,
+      collection: null
+    };
+    
+    // Update Content Library (Business Info, Business Text, Business Images)
+    if (contentLibrary) {
+      results.contentLibrary = await callDudaAPI('POST', `/sites/multiscreen/${siteName}/content`, contentLibrary);
+    }
+    
+    // Update custom collection (like Replit1)
+    if (collection && collection.name && collection.rows) {
+      const formattedRows = collection.rows.map(row => ({
+        data: row.data || row
+      }));
+      results.collection = await callDudaAPI('POST', `/sites/multiscreen/${siteName}/collection/${collection.name}/row`, formattedRows);
+    }
+    
+    res.json({ 
+      success: true, 
+      results: {
+        contentLibrary: results.contentLibrary?.success || false,
+        collection: results.collection?.success || false
+      },
+      details: results
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Clear all rows in a collection and add new ones (full sync)
+app.post('/api/sites/:siteName/collections/:collectionName/sync', async (req, res) => {
+  try {
+    const { siteName, collectionName } = req.params;
+    const { rows } = req.body;
+    
+    if (!rows || !Array.isArray(rows)) {
+      return res.status(400).json({ success: false, error: 'Rows array is required' });
+    }
+    
+    // Get existing rows
+    const existingResult = await callDudaAPI('GET', `/sites/multiscreen/${siteName}/collection/${collectionName}/row`);
+    
+    // Delete existing rows
+    if (existingResult.success && existingResult.data && existingResult.data.length > 0) {
+      for (const row of existingResult.data) {
+        if (row.id) {
+          await callDudaAPI('DELETE', `/sites/multiscreen/${siteName}/collection/${collectionName}/row/${row.id}`);
+        }
+      }
+    }
+    
+    // Add new rows
+    const formattedRows = rows.map(row => ({
+      data: row.data || row
+    }));
+    
+    const createResult = await callDudaAPI('POST', `/sites/multiscreen/${siteName}/collection/${collectionName}/row`, formattedRows);
+    
+    if (createResult.success) {
+      res.json({ success: true, data: createResult.data, synced: rows.length });
+    } else {
+      res.status(500).json({ success: false, error: createResult.error });
     }
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

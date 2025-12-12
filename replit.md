@@ -24,14 +24,30 @@ church-web-global/
 - Command: `node church-web-global/server.js`
 
 ## API Endpoints
-- `GET /api/test` - Health check
+
+### Templates
 - `GET /api/templates` - Fetch available templates from DUDA
 - `GET /api/templates/:templateId` - Get specific template details
-- `POST /api/sites/create` - Create a new site from template
-- `POST /api/sites/:siteName/update` - Update site content
-- `POST /api/sites/:siteName/publish` - Publish a site
+
+### Site Management
+- `POST /api/sites/create` - Create a new site from template (supports both numeric template_id and base_site_name)
 - `GET /api/sites/:siteName` - Get site details
 - `DELETE /api/sites/:siteName` - Delete a site
+- `POST /api/sites/:siteName/content` - Update site Content Library
+- `POST /api/sites/:siteName/publish` - Publish a site
+
+### Collections API (NEW)
+- `GET /api/sites/:siteName/collections` - List all collections for a site
+- `GET /api/sites/:siteName/collections/:collectionName` - Get collection schema and data
+- `GET /api/sites/:siteName/collections/:collectionName/rows` - Get all rows in a collection
+- `POST /api/sites/:siteName/collections/:collectionName/rows` - Create new rows in a collection
+- `PUT /api/sites/:siteName/collections/:collectionName/rows/:rowId` - Update a specific row
+- `DELETE /api/sites/:siteName/collections/:collectionName/rows/:rowId` - Delete a row
+- `POST /api/sites/:siteName/collections/:collectionName/sync` - Clear and replace all rows
+- `POST /api/sites/:siteName/update-all` - Update both Content Library AND collection in one call
+
+### Other
+- `GET /api/test` - Health check
 - `POST /api/signup` - Handle user signup
 
 ## Environment Variables (Secrets)
