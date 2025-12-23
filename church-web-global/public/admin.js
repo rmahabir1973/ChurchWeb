@@ -983,7 +983,8 @@ async function loadDnsZones() {
         const data = await response.json();
         
         if (!data.success) {
-            if (data.error && data.error.includes('not configured')) {
+            const errorMsg = typeof data.error === 'string' ? data.error : (data.error?.message || JSON.stringify(data.error));
+            if (errorMsg && errorMsg.includes('not configured')) {
                 notConfigured.style.display = 'block';
                 configured.style.display = 'none';
                 return;
@@ -1244,7 +1245,8 @@ async function loadMailDomains() {
         const data = await response.json();
         
         if (!data.success) {
-            if (data.error && (data.error.includes('not configured') || data.error.includes('SmarterMail'))) {
+            const errorMsg = typeof data.error === 'string' ? data.error : (data.error?.message || JSON.stringify(data.error));
+            if (errorMsg && (errorMsg.includes('not configured') || errorMsg.includes('SmarterMail'))) {
                 notConfigured.style.display = 'block';
                 configured.style.display = 'none';
                 return;

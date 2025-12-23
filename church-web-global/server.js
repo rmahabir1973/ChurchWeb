@@ -3444,7 +3444,7 @@ app.get('/api/admin/smartermail/domains', requireAdmin, async (req, res) => {
             return res.status(400).json({ success: false, error: 'SmarterMail not configured. Add SMARTERMAIL_URL, SMARTERMAIL_ADMIN_USER, and SMARTERMAIL_ADMIN_PASSWORD to secrets.' });
         }
         
-        const result = await callSmarterMailAPI('GET', '/settings/sysadmin/domain-list');
+        const result = await callSmarterMailAPI('GET', '/settings/sysadmin/domains');
         
         if (!result.success) {
             return res.status(500).json({ success: false, error: result.error });
