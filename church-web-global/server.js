@@ -3504,16 +3504,15 @@ app.get('/api/admin/smartermail/domains/:domain/users', requireAdmin, async (req
     try {
         const { domain } = req.params;
         
-        // Use AccountListSearch to get all users for a domain
-        // API endpoint: POST /settings/domain/account-list-search
-        const result = await callSmarterMailAPI('POST', '/settings/domain/account-list-search', {
+        // Use AccountSearchQuick to get all users for a domain
+        // API endpoint: POST /settings/domain/account-search-quick
+        const result = await callSmarterMailAPI('POST', '/settings/domain/account-search-quick', {
             search: '',
-            domain: domain,
+            domainName: domain,
             sortField: 'userName',
             sortDescending: false,
             skip: 0,
-            take: 1000,
-            searchFlags: []
+            take: 1000
         });
         
         if (!result.success) {
@@ -3521,15 +3520,16 @@ app.get('/api/admin/smartermail/domains/:domain/users', requireAdmin, async (req
         }
         
         // Normalize and sanitize user data for UI
-        const rawUsers = result.data.accounts || [];
+        // Response may be { results: [...] } or { accounts: [...] } or { users: [...] }
+        const rawUsers = result.data.results || result.data.accounts || result.data.users || [];
         const users = rawUsers.map(u => ({
-            emailAddress: u.emailAddress || u.userName || 'Unknown',
-            displayName: u.displayName || u.fullName || null,
+            emailAddress: u.emailAddress || u.userName || u.email || 'Unknown',
+            displayName: u.displayName || u.fullName || u.name || null,
             mailboxSizeUsed: u.mailboxSizeUsed || u.size || 0,
             mailboxSizeLimit: u.mailboxSizeLimit || u.maxSize || 0,
             isEnabled: u.isEnabled !== false
         }));
-        const totalUsers = result.data.total || users.length;
+        const totalUsers = result.data.total || result.data.totalResults || users.length;
         
         res.json({ success: true, users, total: totalUsers });
     } catch (error) {
