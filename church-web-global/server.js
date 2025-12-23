@@ -3444,14 +3444,15 @@ app.get('/api/admin/smartermail/domains', requireAdmin, async (req, res) => {
             return res.status(400).json({ success: false, error: 'SmarterMail not configured. Add SMARTERMAIL_URL, SMARTERMAIL_ADMIN_USER, and SMARTERMAIL_ADMIN_PASSWORD to secrets.' });
         }
         
-        const result = await callSmarterMailAPI('GET', '/settings/sysadmin/domains');
+        const result = await callSmarterMailAPI('GET', '/settings/sysadmin/list-domains');
         
         if (!result.success) {
             return res.status(500).json({ success: false, error: result.error });
         }
         
         // Transform and normalize domain list for UI (sanitize raw SmarterMail data)
-        const rawDomains = result.data.domainList || [];
+        // The response structure is { domains: [...] } or { domainList: [...] }
+        const rawDomains = result.data.domains || result.data.domainList || [];
         const domains = rawDomains.map(d => ({
             name: typeof d === 'string' ? d : (d.name || d.domainName || 'Unknown'),
             userCount: d.userCount || null,
@@ -3496,14 +3497,16 @@ app.get('/api/admin/smartermail/domains/:domain/users', requireAdmin, async (req
     try {
         const { domain } = req.params;
         
-        // Use account-list-search to get all users for a domain
+        // Use AccountListSearch to get all users for a domain
+        // API endpoint: POST /settings/domain/account-list-search
         const result = await callSmarterMailAPI('POST', '/settings/domain/account-list-search', {
-            query: '',
-            domainName: domain,
-            sortField: 'emailAddress',
+            search: '',
+            domain: domain,
+            sortField: 'userName',
             sortDescending: false,
             skip: 0,
-            take: 1000
+            take: 1000,
+            searchFlags: []
         });
         
         if (!result.success) {
@@ -3538,21 +3541,12 @@ app.post('/api/admin/smartermail/domains/:domain/users', requireAdmin, async (re
             return res.status(400).json({ success: false, error: 'Username and password are required' });
         }
         
-        const result = await callSmarterMailAPI('POST', '/settings/domain/user-put', {
-            userData: {
-                userName: username,
-                domainName: domain,
-                fullName: fullName || username,
-                password: password,
-                securityFlags: {
-                    authType: 0, // SmarterMail auth
-                    isDomainAdmin: false
-                },
-                isPasswordExpired: false,
-                userMailSettings: {
-                    maxSize: mailboxSizeMB ? mailboxSizeMB * 1024 * 1024 : 500 * 1024 * 1024 // Default 500MB
-                }
-            }
+        // Use AddUser endpoint: POST /settings/domain/add-user
+        const result = await callSmarterMailAPI('POST', '/settings/domain/add-user', {
+            userName: username,
+            password: password,
+            displayName: fullName || username,
+            maxSize: mailboxSizeMB ? mailboxSizeMB * 1024 * 1024 : 500 * 1024 * 1024 // Default 500MB in bytes
         });
         
         if (!result.success) {
@@ -3571,9 +3565,9 @@ app.delete('/api/admin/smartermail/domains/:domain/users/:username', requireAdmi
     try {
         const { domain, username } = req.params;
         
-        const result = await callSmarterMailAPI('POST', '/settings/domain/user-delete', {
-            userName: username,
-            domainName: domain
+        // Use DeleteUser endpoint: POST /settings/domain/delete-user
+        const result = await callSmarterMailAPI('POST', '/settings/domain/delete-user', {
+            email: `${username}@${domain}`
         });
         
         if (!result.success) {
@@ -3632,7 +3626,7 @@ app.get('/api/admin/smartermail/stats', requireAdmin, async (req, res) => {
         }
         
         // Get domain list to count
-        const domainsResult = await callSmarterMailAPI('GET', '/settings/sysadmin/domain-list');
+        const domainsResult = await callSmarterMailAPI('GET', '/settings/sysadmin/list-domains');
         
         if (!domainsResult.success) {
             return res.status(500).json({ success: false, error: domainsResult.error });
