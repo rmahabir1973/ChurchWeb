@@ -130,6 +130,15 @@ church-web-global/
 ```
 
 ## Recent Changes
+- December 23, 2024: Added SmarterMail Integration to Admin Panel
+  - New "Mail" tab in admin panel navigation for mail server management
+  - JWT authentication with 60-second token caching and automatic 401 retry
+  - 7 backend API endpoints: list domains, get domain, list/create/update/delete users, stats
+  - Modal-based mail user editor with mailbox size settings (100MB-5GB)
+  - Search/filter mail domains by name
+  - Response sanitization for security (only returns needed fields)
+  - API status indicator for SmarterMail in Settings
+
 - December 23, 2024: Added Cloudflare DNS Management to Admin Panel
   - New "DNS" tab in admin panel navigation
   - Auto-fetches all zones (200+ domains) with single API token
