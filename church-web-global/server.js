@@ -10,6 +10,7 @@ const OpenAI = require('openai');
 const { Pool } = require('pg');
 const postmark = require('postmark');
 const multer = require('multer');
+const { Duda } = require('@dudadev/partner-api');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -309,6 +310,17 @@ console.log(`DUDA API Endpoint configured: ${DUDA_API_ENDPOINT}`);
 const DUDA_MCP_TOKEN = process.env.DUDA_MCP_TOKEN;
 const DUDA_MCP_URL = process.env.DUDA_MCP_URL;
 console.log(`DUDA MCP AI configured: ${DUDA_MCP_URL ? 'Yes' : 'No'}`);
+
+// DUDA Partner API Client (for direct API access)
+let dudaClient = null;
+if (DUDA_API_USER && DUDA_API_PASSWORD) {
+    dudaClient = new Duda({
+        user: DUDA_API_USER,
+        pass: DUDA_API_PASSWORD,
+        env: Duda.Envs.direct
+    });
+    console.log('DUDA Partner API client initialized');
+}
 
 // WHMCS API Configuration
 const WHMCS_API_URL = process.env.WHMCS_API_URL;
@@ -3662,6 +3674,558 @@ app.get('/api/admin/smartermail/stats', requireAdmin, async (req, res) => {
     } catch (error) {
         console.error('Get SmarterMail stats error:', error);
         res.status(500).json({ success: false, error: 'Failed to fetch stats' });
+    }
+});
+
+// ============================================
+// DUDA MCP TEMPLATE CREATION ENDPOINTS
+// ============================================
+
+// Church template design configurations
+const CHURCH_TEMPLATE_DESIGNS = {
+    'modern-minimalist': {
+        name: 'Modern Minimalist',
+        description: 'Clean whites, lots of whitespace, contemporary feel',
+        style: 'contemporary',
+        colors: {
+            primary: '#2C3E50',
+            secondary: '#3498DB',
+            accent: '#E74C3C',
+            background: '#FFFFFF',
+            text: '#333333'
+        },
+        fonts: {
+            heading: 'Montserrat',
+            body: 'Open Sans'
+        }
+    },
+    'traditional-classic': {
+        name: 'Traditional Classic',
+        description: 'Rich colors, ornate details, established denominations',
+        style: 'traditional',
+        colors: {
+            primary: '#1A237E',
+            secondary: '#B71C1C',
+            accent: '#FFC107',
+            background: '#F5F5F5',
+            text: '#212121'
+        },
+        fonts: {
+            heading: 'Playfair Display',
+            body: 'Lora'
+        }
+    },
+    'warm-community': {
+        name: 'Warm Community',
+        description: 'Earth tones, welcoming feel, family-focused',
+        style: 'warm',
+        colors: {
+            primary: '#5D4037',
+            secondary: '#FF8F00',
+            accent: '#4CAF50',
+            background: '#FFF8E1',
+            text: '#3E2723'
+        },
+        fonts: {
+            heading: 'Merriweather',
+            body: 'Source Sans Pro'
+        }
+    },
+    'bold-dynamic': {
+        name: 'Bold & Dynamic',
+        description: 'Dark backgrounds, vibrant accents, youth-oriented',
+        style: 'bold',
+        colors: {
+            primary: '#1A1A2E',
+            secondary: '#E94560',
+            accent: '#0F3460',
+            background: '#16213E',
+            text: '#EAEAEA'
+        },
+        fonts: {
+            heading: 'Poppins',
+            body: 'Roboto'
+        }
+    },
+    'pastoral-calm': {
+        name: 'Pastoral Calm',
+        description: 'Soft blues/greens, nature imagery, peaceful',
+        style: 'pastoral',
+        colors: {
+            primary: '#2E7D32',
+            secondary: '#1976D2',
+            accent: '#7B1FA2',
+            background: '#E8F5E9',
+            text: '#1B5E20'
+        },
+        fonts: {
+            heading: 'Crimson Text',
+            body: 'Nunito'
+        }
+    },
+    'urban-contemporary': {
+        name: 'Urban Contemporary',
+        description: 'Industrial touches, bold typography, city churches',
+        style: 'urban',
+        colors: {
+            primary: '#263238',
+            secondary: '#FF5722',
+            accent: '#00BCD4',
+            background: '#ECEFF1',
+            text: '#37474F'
+        },
+        fonts: {
+            heading: 'Oswald',
+            body: 'Lato'
+        }
+    }
+};
+
+// ChurchData collection schema
+const CHURCH_DATA_COLLECTION_SCHEMA = {
+    name: 'ChurchData',
+    fields: [
+        { name: 'Welcome_Message', type: 'text' },
+        { name: 'tagline', type: 'text' },
+        { name: 'About_short_blurb', type: 'text' },
+        { name: 'About_Story', type: 'text' },
+        { name: 'Service_Times', type: 'text' },
+        { name: 'Pastor_Name', type: 'text' },
+        { name: 'Pastor_Title', type: 'text' },
+        { name: 'Denomination', type: 'text' },
+        { name: 'Contact_Email', type: 'text' },
+        { name: 'Contact_Phone', type: 'text' },
+        { name: 'Contact_Address', type: 'text' },
+        { name: 'Social_Facebook', type: 'text' },
+        { name: 'Social_Instagram', type: 'text' },
+        { name: 'Social_YouTube', type: 'text' }
+    ]
+};
+
+// List available template designs
+app.get('/api/admin/mcp/template-designs', requireAdmin, (req, res) => {
+    res.json({ 
+        success: true, 
+        designs: Object.entries(CHURCH_TEMPLATE_DESIGNS).map(([id, design]) => ({
+            id,
+            ...design
+        }))
+    });
+});
+
+// Get collection schema
+app.get('/api/admin/mcp/collection-schema', requireAdmin, (req, res) => {
+    res.json({ 
+        success: true, 
+        schema: CHURCH_DATA_COLLECTION_SCHEMA 
+    });
+});
+
+// List all DUDA templates available in the account
+app.get('/api/admin/mcp/duda-templates', requireAdmin, async (req, res) => {
+    try {
+        if (!dudaClient) {
+            return res.status(400).json({ success: false, error: 'DUDA Partner API not configured' });
+        }
+        
+        const templates = await dudaClient.templates.list();
+        res.json({ success: true, templates });
+    } catch (error) {
+        console.error('Error listing DUDA templates:', error);
+        res.status(500).json({ success: false, error: error.message || 'Failed to list templates' });
+    }
+});
+
+// List all sites in the account
+app.get('/api/admin/mcp/sites', requireAdmin, async (req, res) => {
+    try {
+        if (!dudaClient) {
+            return res.status(400).json({ success: false, error: 'DUDA Partner API not configured' });
+        }
+        
+        const sites = await dudaClient.sites.list();
+        res.json({ success: true, sites });
+    } catch (error) {
+        console.error('Error listing sites:', error);
+        res.status(500).json({ success: false, error: error.message || 'Failed to list sites' });
+    }
+});
+
+// Get site details
+app.get('/api/admin/mcp/sites/:siteName', requireAdmin, async (req, res) => {
+    try {
+        if (!dudaClient) {
+            return res.status(400).json({ success: false, error: 'DUDA Partner API not configured' });
+        }
+        
+        const { siteName } = req.params;
+        const site = await dudaClient.sites.get({ site_name: siteName });
+        res.json({ success: true, site });
+    } catch (error) {
+        console.error('Error getting site:', error);
+        res.status(500).json({ success: false, error: error.message || 'Failed to get site' });
+    }
+});
+
+// Create a new site from template
+app.post('/api/admin/mcp/sites/create', requireAdmin, async (req, res) => {
+    try {
+        if (!dudaClient) {
+            return res.status(400).json({ success: false, error: 'DUDA Partner API not configured' });
+        }
+        
+        const { templateId, siteName, designId, churchInfo } = req.body;
+        
+        if (!templateId) {
+            return res.status(400).json({ success: false, error: 'Template ID is required' });
+        }
+        
+        // Create site from template
+        const createOptions = {
+            template_id: templateId
+        };
+        
+        if (siteName) {
+            createOptions.default_domain_prefix = siteName;
+        }
+        
+        const site = await dudaClient.sites.create(createOptions);
+        console.log('Site created:', site.site_name);
+        
+        // Apply design theme if specified
+        if (designId && CHURCH_TEMPLATE_DESIGNS[designId]) {
+            const design = CHURCH_TEMPLATE_DESIGNS[designId];
+            try {
+                await dudaClient.sites.theme.update({
+                    site_name: site.site_name,
+                    colors: design.colors
+                });
+                console.log('Theme applied:', designId);
+            } catch (themeError) {
+                console.error('Error applying theme:', themeError.message);
+            }
+        }
+        
+        // Update content library with church info if provided
+        if (churchInfo) {
+            try {
+                await dudaClient.content.update({
+                    site_name: site.site_name,
+                    site_business_info: {
+                        business_name: churchInfo.name,
+                        phone_number: churchInfo.phone,
+                        email: churchInfo.email,
+                        address: churchInfo.address ? {
+                            streetAddress: churchInfo.address
+                        } : undefined
+                    }
+                });
+                console.log('Content library updated');
+            } catch (contentError) {
+                console.error('Error updating content:', contentError.message);
+            }
+        }
+        
+        res.json({ 
+            success: true, 
+            site: site,
+            message: `Site ${site.site_name} created successfully`
+        });
+    } catch (error) {
+        console.error('Error creating site:', error);
+        res.status(500).json({ success: false, error: error.message || 'Failed to create site' });
+    }
+});
+
+// Create ChurchData collection on a site
+app.post('/api/admin/mcp/sites/:siteName/create-collection', requireAdmin, async (req, res) => {
+    try {
+        if (!dudaClient) {
+            return res.status(400).json({ success: false, error: 'DUDA Partner API not configured' });
+        }
+        
+        const { siteName } = req.params;
+        
+        // Create the ChurchData collection using the API
+        const collectionPayload = {
+            name: CHURCH_DATA_COLLECTION_SCHEMA.name,
+            fields: CHURCH_DATA_COLLECTION_SCHEMA.fields.map(f => ({
+                name: f.name,
+                type: f.type === 'text' ? 'plain_text' : f.type
+            }))
+        };
+        
+        const result = await callDudaAPI('POST', `/sites/multiscreen/${siteName}/collection`, collectionPayload);
+        
+        if (result.success) {
+            res.json({ 
+                success: true, 
+                message: `ChurchData collection created on ${siteName}`,
+                collection: result.data
+            });
+        } else {
+            res.status(500).json({ success: false, error: result.error });
+        }
+    } catch (error) {
+        console.error('Error creating collection:', error);
+        res.status(500).json({ success: false, error: error.message || 'Failed to create collection' });
+    }
+});
+
+// Generate a complete church template site with AI description
+app.post('/api/admin/mcp/generate-template', requireAdmin, async (req, res) => {
+    try {
+        if (!dudaClient) {
+            return res.status(400).json({ success: false, error: 'DUDA Partner API not configured' });
+        }
+        
+        const { designId, templateName, description } = req.body;
+        
+        if (!designId || !CHURCH_TEMPLATE_DESIGNS[designId]) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Valid design ID is required',
+                availableDesigns: Object.keys(CHURCH_TEMPLATE_DESIGNS)
+            });
+        }
+        
+        const design = CHURCH_TEMPLATE_DESIGNS[designId];
+        
+        // Use DUDA's site generation API if available
+        // This creates a complete site from a description
+        const generateDescription = description || `
+            Create a professional church website with the following style: ${design.description}.
+            
+            Required pages:
+            - Home: Hero section with welcome message, service times, quick links to key pages
+            - About: Church story, pastor bio section, mission statement
+            - Services: Service schedule, what to expect, livestream section
+            - Contact: Contact form, address with map, phone and email
+            
+            Design requirements:
+            - Mobile responsive
+            - Hero section with gradient overlay
+            - Clear CTA buttons for "Plan Your Visit" and "Watch Online"
+            - Footer with contact info and social links
+            - Sticky header navigation
+            
+            Style: ${design.style}
+            Primary color: ${design.colors.primary}
+            Font style: ${design.fonts.heading} for headings, ${design.fonts.body} for body
+        `;
+        
+        // Try to generate site using DUDA's generate endpoint
+        try {
+            const generateResult = await callDudaAPI('POST', '/sites/multiscreen/generate', {
+                prompt: generateDescription,
+                lang: 'en'
+            });
+            
+            if (generateResult.success && generateResult.data.site_name) {
+                const siteName = generateResult.data.site_name;
+                
+                // Apply theme colors
+                try {
+                    await dudaClient.sites.theme.update({
+                        site_name: siteName,
+                        colors: design.colors
+                    });
+                } catch (themeError) {
+                    console.log('Theme update note:', themeError.message);
+                }
+                
+                // Create ChurchData collection
+                try {
+                    await callDudaAPI('POST', `/sites/multiscreen/${siteName}/collection`, {
+                        name: CHURCH_DATA_COLLECTION_SCHEMA.name,
+                        fields: CHURCH_DATA_COLLECTION_SCHEMA.fields.map(f => ({
+                            name: f.name,
+                            type: f.type === 'text' ? 'plain_text' : f.type
+                        }))
+                    });
+                } catch (collectionError) {
+                    console.log('Collection creation note:', collectionError.message);
+                }
+                
+                // Save to local templates config
+                const templatesConfig = loadConfig(TEMPLATES_CONFIG, { templates: [], lastUpdated: null });
+                const newTemplate = {
+                    id: `mcp-${designId}-${Date.now()}`,
+                    template_id: siteName,
+                    base_site_name: siteName,
+                    name: templateName || design.name,
+                    description: design.description,
+                    thumbnail: null,
+                    designId: designId,
+                    createdAt: new Date().toISOString(),
+                    createdBy: 'MCP'
+                };
+                templatesConfig.templates.push(newTemplate);
+                templatesConfig.lastUpdated = new Date().toISOString();
+                saveConfig(TEMPLATES_CONFIG, templatesConfig);
+                
+                res.json({
+                    success: true,
+                    message: `Template "${templateName || design.name}" generated successfully`,
+                    site: generateResult.data,
+                    template: newTemplate
+                });
+                return;
+            }
+        } catch (generateError) {
+            console.log('Site generation not available, falling back to template-based creation');
+        }
+        
+        // Fallback: Create from existing template
+        res.status(400).json({ 
+            success: false, 
+            error: 'Site generation requires a base template. Use /api/admin/mcp/sites/create with an existing template_id instead.',
+            suggestion: 'List available templates with GET /api/admin/mcp/duda-templates first'
+        });
+        
+    } catch (error) {
+        console.error('Error generating template:', error);
+        res.status(500).json({ success: false, error: error.message || 'Failed to generate template' });
+    }
+});
+
+// Batch create all 6 master templates from a base template
+app.post('/api/admin/mcp/create-master-templates', requireAdmin, async (req, res) => {
+    try {
+        if (!dudaClient) {
+            return res.status(400).json({ success: false, error: 'DUDA Partner API not configured' });
+        }
+        
+        const { baseTemplateId } = req.body;
+        
+        if (!baseTemplateId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Base template ID is required. Get available templates from GET /api/admin/mcp/duda-templates'
+            });
+        }
+        
+        const results = [];
+        const errors = [];
+        
+        for (const [designId, design] of Object.entries(CHURCH_TEMPLATE_DESIGNS)) {
+            try {
+                console.log(`Creating template: ${design.name}...`);
+                
+                // Create site from base template
+                const site = await dudaClient.sites.create({
+                    template_id: baseTemplateId,
+                    default_domain_prefix: `church-${designId}-master`
+                });
+                
+                console.log(`Site created: ${site.site_name}`);
+                
+                // Apply theme colors
+                try {
+                    await dudaClient.sites.theme.update({
+                        site_name: site.site_name,
+                        colors: design.colors
+                    });
+                    console.log(`Theme applied to ${site.site_name}`);
+                } catch (themeError) {
+                    console.log(`Theme note for ${site.site_name}:`, themeError.message);
+                }
+                
+                // Create ChurchData collection
+                try {
+                    await callDudaAPI('POST', `/sites/multiscreen/${site.site_name}/collection`, {
+                        name: CHURCH_DATA_COLLECTION_SCHEMA.name,
+                        fields: CHURCH_DATA_COLLECTION_SCHEMA.fields.map(f => ({
+                            name: f.name,
+                            type: f.type === 'text' ? 'plain_text' : f.type
+                        }))
+                    });
+                    console.log(`Collection created on ${site.site_name}`);
+                } catch (collectionError) {
+                    console.log(`Collection note for ${site.site_name}:`, collectionError.message);
+                }
+                
+                // Save to local templates config
+                const templatesConfig = loadConfig(TEMPLATES_CONFIG, { templates: [], lastUpdated: null });
+                const newTemplate = {
+                    id: `master-${designId}`,
+                    template_id: site.site_name,
+                    base_site_name: site.site_name,
+                    name: `${design.name} (Master)`,
+                    description: design.description,
+                    thumbnail: null,
+                    designId: designId,
+                    isMasterTemplate: true,
+                    createdAt: new Date().toISOString(),
+                    createdBy: 'MCP'
+                };
+                
+                // Remove existing master template with same designId if exists
+                templatesConfig.templates = templatesConfig.templates.filter(t => t.id !== `master-${designId}`);
+                templatesConfig.templates.push(newTemplate);
+                templatesConfig.lastUpdated = new Date().toISOString();
+                saveConfig(TEMPLATES_CONFIG, templatesConfig);
+                
+                results.push({
+                    designId,
+                    name: design.name,
+                    siteName: site.site_name,
+                    success: true
+                });
+                
+                // Small delay between creations to avoid rate limiting
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+            } catch (error) {
+                console.error(`Error creating ${design.name}:`, error.message);
+                errors.push({
+                    designId,
+                    name: design.name,
+                    error: error.message
+                });
+            }
+        }
+        
+        res.json({
+            success: errors.length === 0,
+            message: `Created ${results.length} of 6 master templates`,
+            created: results,
+            errors: errors.length > 0 ? errors : undefined
+        });
+        
+    } catch (error) {
+        console.error('Error creating master templates:', error);
+        res.status(500).json({ success: false, error: error.message || 'Failed to create master templates' });
+    }
+});
+
+// Test DUDA Partner API connection
+app.get('/api/admin/mcp/test', requireAdmin, async (req, res) => {
+    try {
+        const results = {
+            partnerApi: false,
+            mcpToken: !!DUDA_MCP_TOKEN,
+            mcpUrl: !!DUDA_MCP_URL
+        };
+        
+        if (dudaClient) {
+            try {
+                const sites = await dudaClient.sites.list();
+                results.partnerApi = true;
+                results.siteCount = sites.length || (sites.results ? sites.results.length : 0);
+            } catch (apiError) {
+                results.partnerApiError = apiError.message;
+            }
+        }
+        
+        res.json({ 
+            success: true, 
+            message: 'DUDA MCP connection test',
+            results 
+        });
+    } catch (error) {
+        console.error('MCP test error:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
