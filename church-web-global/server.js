@@ -316,6 +316,43 @@ const WHMCS_API_IDENTIFIER = process.env.WHMCS_API_IDENTIFIER;
 const WHMCS_API_SECRET = process.env.WHMCS_API_SECRET;
 console.log(`WHMCS API configured: ${WHMCS_API_URL ? 'Yes' : 'No'}`);
 
+// Cloudflare API Configuration
+const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
+console.log(`Cloudflare API configured: ${CLOUDFLARE_API_TOKEN ? 'Yes' : 'No'}`);
+
+// Helper function for Cloudflare API calls
+async function callCloudflareAPI(method, endpoint, data = null) {
+    if (!CLOUDFLARE_API_TOKEN) {
+        return { success: false, error: 'Cloudflare API not configured' };
+    }
+    
+    try {
+        const config = {
+            method: method,
+            url: `https://api.cloudflare.com/client/v4${endpoint}`,
+            headers: {
+                'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            data: data
+        };
+        
+        console.log(`Cloudflare API Request: ${method} ${endpoint}`);
+        const response = await axios(config);
+        
+        if (response.data.success) {
+            return { success: true, data: response.data.result, result_info: response.data.result_info };
+        } else {
+            return { success: false, error: response.data.errors };
+        }
+    } catch (error) {
+        const statusCode = error.response?.status;
+        const errorData = error.response?.data || { message: error.message };
+        console.error(`Cloudflare API Error [${statusCode}]:`, errorData);
+        return { success: false, error: errorData, statusCode };
+    }
+}
+
 // Create base64 encoded auth string for DUDA
 const authString = Buffer.from(`${DUDA_API_USER}:${DUDA_API_PASSWORD}`).toString('base64');
 
@@ -2902,8 +2939,9 @@ app.get('/api/admin/api-status', requireAdmin, async (req, res) => {
         const whmcs = !!WHMCS_API_URL;
         const postmark = !!process.env.POSTMARK_API_TOKEN;
         const database = !!process.env.DATABASE_URL;
+        const cloudflare = !!CLOUDFLARE_API_TOKEN;
         
-        res.json({ success: true, duda, whmcs, postmark, database });
+        res.json({ success: true, duda, whmcs, postmark, database, cloudflare });
     } catch (error) {
         res.status(500).json({ success: false, error: 'Failed to check status' });
     }
@@ -2996,6 +3034,274 @@ async function checkWHMCSInvoice(invoiceId) {
         return { isPaid: false, error: error.message };
     }
 }
+
+// ============================================
+// CLOUDFLARE DNS MANAGEMENT ENDPOINTS
+// ============================================
+
+// Get all Cloudflare zones (domains) with pagination
+app.get('/api/admin/cloudflare/zones', requireAdmin, async (req, res) => {
+    try {
+        if (!CLOUDFLARE_API_TOKEN) {
+            return res.status(400).json({ success: false, error: 'Cloudflare API not configured. Add CLOUDFLARE_API_TOKEN to secrets.' });
+        }
+        
+        const allZones = [];
+        let page = 1;
+        const perPage = 50;
+        let totalPages = 1;
+        
+        // Fetch all pages of zones
+        while (page <= totalPages) {
+            const result = await callCloudflareAPI('GET', `/zones?page=${page}&per_page=${perPage}&order=name&direction=asc`);
+            
+            if (!result.success) {
+                return res.status(500).json({ success: false, error: result.error });
+            }
+            
+            allZones.push(...result.data);
+            
+            if (result.result_info) {
+                totalPages = result.result_info.total_pages;
+            }
+            page++;
+        }
+        
+        // Return simplified zone data
+        const zones = allZones.map(zone => ({
+            id: zone.id,
+            name: zone.name,
+            status: zone.status,
+            paused: zone.paused,
+            type: zone.type,
+            name_servers: zone.name_servers,
+            created_on: zone.created_on
+        }));
+        
+        res.json({ success: true, zones, total: zones.length });
+    } catch (error) {
+        console.error('Get Cloudflare zones error:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch zones' });
+    }
+});
+
+// Get DNS records for a specific zone
+app.get('/api/admin/cloudflare/zones/:zoneId/dns', requireAdmin, async (req, res) => {
+    try {
+        const { zoneId } = req.params;
+        const { type, name } = req.query;
+        
+        let endpoint = `/zones/${zoneId}/dns_records?per_page=100`;
+        if (type) endpoint += `&type=${type}`;
+        if (name) endpoint += `&name=${encodeURIComponent(name)}`;
+        
+        const allRecords = [];
+        let page = 1;
+        let hasMore = true;
+        
+        while (hasMore) {
+            const result = await callCloudflareAPI('GET', `${endpoint}&page=${page}`);
+            
+            if (!result.success) {
+                return res.status(500).json({ success: false, error: result.error });
+            }
+            
+            allRecords.push(...result.data);
+            
+            if (result.result_info && result.result_info.page < result.result_info.total_pages) {
+                page++;
+            } else {
+                hasMore = false;
+            }
+        }
+        
+        // Return simplified record data
+        const records = allRecords.map(record => ({
+            id: record.id,
+            type: record.type,
+            name: record.name,
+            content: record.content,
+            proxied: record.proxied,
+            ttl: record.ttl,
+            priority: record.priority,
+            created_on: record.created_on,
+            modified_on: record.modified_on
+        }));
+        
+        res.json({ success: true, records });
+    } catch (error) {
+        console.error('Get DNS records error:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch DNS records' });
+    }
+});
+
+// Create a new DNS record
+app.post('/api/admin/cloudflare/zones/:zoneId/dns', requireAdmin, async (req, res) => {
+    try {
+        const { zoneId } = req.params;
+        const { type, name, content, ttl, proxied, priority } = req.body;
+        
+        if (!type || !name || !content) {
+            return res.status(400).json({ success: false, error: 'Type, name, and content are required' });
+        }
+        
+        const recordData = {
+            type: type.toUpperCase(),
+            name,
+            content,
+            ttl: ttl || 1, // 1 = auto
+            proxied: proxied !== undefined ? proxied : (type.toUpperCase() === 'A' || type.toUpperCase() === 'CNAME')
+        };
+        
+        if (type.toUpperCase() === 'MX' && priority !== undefined) {
+            recordData.priority = priority;
+        }
+        
+        const result = await callCloudflareAPI('POST', `/zones/${zoneId}/dns_records`, recordData);
+        
+        if (!result.success) {
+            return res.status(500).json({ success: false, error: result.error });
+        }
+        
+        res.json({ success: true, record: result.data });
+    } catch (error) {
+        console.error('Create DNS record error:', error);
+        res.status(500).json({ success: false, error: 'Failed to create DNS record' });
+    }
+});
+
+// Update a DNS record
+app.put('/api/admin/cloudflare/zones/:zoneId/dns/:recordId', requireAdmin, async (req, res) => {
+    try {
+        const { zoneId, recordId } = req.params;
+        const { type, name, content, ttl, proxied, priority } = req.body;
+        
+        if (!type || !name || !content) {
+            return res.status(400).json({ success: false, error: 'Type, name, and content are required' });
+        }
+        
+        const recordData = {
+            type: type.toUpperCase(),
+            name,
+            content,
+            ttl: ttl || 1,
+            proxied: proxied !== undefined ? proxied : false
+        };
+        
+        if (type.toUpperCase() === 'MX' && priority !== undefined) {
+            recordData.priority = priority;
+        }
+        
+        const result = await callCloudflareAPI('PUT', `/zones/${zoneId}/dns_records/${recordId}`, recordData);
+        
+        if (!result.success) {
+            return res.status(500).json({ success: false, error: result.error });
+        }
+        
+        res.json({ success: true, record: result.data });
+    } catch (error) {
+        console.error('Update DNS record error:', error);
+        res.status(500).json({ success: false, error: 'Failed to update DNS record' });
+    }
+});
+
+// Delete a DNS record
+app.delete('/api/admin/cloudflare/zones/:zoneId/dns/:recordId', requireAdmin, async (req, res) => {
+    try {
+        const { zoneId, recordId } = req.params;
+        
+        const result = await callCloudflareAPI('DELETE', `/zones/${zoneId}/dns_records/${recordId}`);
+        
+        if (!result.success) {
+            return res.status(500).json({ success: false, error: result.error });
+        }
+        
+        res.json({ success: true, message: 'DNS record deleted' });
+    } catch (error) {
+        console.error('Delete DNS record error:', error);
+        res.status(500).json({ success: false, error: 'Failed to delete DNS record' });
+    }
+});
+
+// Quick action: Point domain to DUDA (creates/updates A and CNAME records)
+app.post('/api/admin/cloudflare/zones/:zoneId/quick-setup/duda', requireAdmin, async (req, res) => {
+    try {
+        const { zoneId } = req.params;
+        const { dudaIp, dudaCname } = req.body;
+        
+        // Default DUDA configuration
+        const targetIp = dudaIp || '34.102.136.180'; // DUDA's default IP
+        const targetCname = dudaCname || 'cname.dudaone.com';
+        
+        // First get zone details to know the domain name
+        const zoneResult = await callCloudflareAPI('GET', `/zones/${zoneId}`);
+        if (!zoneResult.success) {
+            return res.status(500).json({ success: false, error: 'Failed to get zone details' });
+        }
+        
+        const domainName = zoneResult.data.name;
+        const results = [];
+        
+        // Check for existing root A record
+        const existingA = await callCloudflareAPI('GET', `/zones/${zoneId}/dns_records?type=A&name=${domainName}`);
+        
+        if (existingA.success && existingA.data.length > 0) {
+            // Update existing A record
+            const updateResult = await callCloudflareAPI('PUT', `/zones/${zoneId}/dns_records/${existingA.data[0].id}`, {
+                type: 'A',
+                name: '@',
+                content: targetIp,
+                ttl: 1,
+                proxied: true
+            });
+            results.push({ type: 'A', action: 'updated', success: updateResult.success });
+        } else {
+            // Create new A record
+            const createResult = await callCloudflareAPI('POST', `/zones/${zoneId}/dns_records`, {
+                type: 'A',
+                name: '@',
+                content: targetIp,
+                ttl: 1,
+                proxied: true
+            });
+            results.push({ type: 'A', action: 'created', success: createResult.success });
+        }
+        
+        // Check for existing www CNAME
+        const existingCname = await callCloudflareAPI('GET', `/zones/${zoneId}/dns_records?type=CNAME&name=www.${domainName}`);
+        
+        if (existingCname.success && existingCname.data.length > 0) {
+            // Update existing CNAME record
+            const updateResult = await callCloudflareAPI('PUT', `/zones/${zoneId}/dns_records/${existingCname.data[0].id}`, {
+                type: 'CNAME',
+                name: 'www',
+                content: targetCname,
+                ttl: 1,
+                proxied: true
+            });
+            results.push({ type: 'CNAME (www)', action: 'updated', success: updateResult.success });
+        } else {
+            // Create new CNAME record
+            const createResult = await callCloudflareAPI('POST', `/zones/${zoneId}/dns_records`, {
+                type: 'CNAME',
+                name: 'www',
+                content: targetCname,
+                ttl: 1,
+                proxied: true
+            });
+            results.push({ type: 'CNAME (www)', action: 'created', success: createResult.success });
+        }
+        
+        res.json({ 
+            success: true, 
+            message: `Domain ${domainName} configured for DUDA`, 
+            results 
+        });
+    } catch (error) {
+        console.error('DUDA quick setup error:', error);
+        res.status(500).json({ success: false, error: 'Failed to configure domain for DUDA' });
+    }
+});
 
 // ============================================
 // SERVE HTML PAGES

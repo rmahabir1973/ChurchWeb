@@ -46,6 +46,14 @@ church-web-global/
 - `POST /api/sites/:siteName/collections/:collectionName/sync` - Clear and replace all rows
 - `POST /api/sites/:siteName/update-all` - Update both Content Library AND collection in one call
 
+### Cloudflare DNS Management (Admin)
+- `GET /api/admin/cloudflare/zones` - List all Cloudflare zones (auto-fetches 200+ domains)
+- `GET /api/admin/cloudflare/zones/:zoneId/dns` - Get DNS records for a zone
+- `POST /api/admin/cloudflare/zones/:zoneId/dns` - Create a DNS record
+- `PUT /api/admin/cloudflare/zones/:zoneId/dns/:recordId` - Update a DNS record
+- `DELETE /api/admin/cloudflare/zones/:zoneId/dns/:recordId` - Delete a DNS record
+- `POST /api/admin/cloudflare/zones/:zoneId/quick-setup/duda` - Quick action: Point domain to DUDA
+
 ### Other
 - `GET /api/test` - Health check
 - `POST /api/signup` - Handle user signup
@@ -60,6 +68,7 @@ church-web-global/
 - `WHMCS_PRODUCT_STARTER` - WHMCS product ID for Starter plan
 - `WHMCS_PRODUCT_PROFESSIONAL` - WHMCS product ID for Professional plan
 - `WHMCS_PRODUCT_ENTERPRISE` - WHMCS product ID for Enterprise plan
+- `CLOUDFLARE_API_TOKEN` - Cloudflare API token (get from https://dash.cloudflare.com/profile/api-tokens)
 
 ## Features
 1. **Modern SaaS Landing Page** (NEW)
@@ -82,6 +91,11 @@ church-web-global/
 5. **WHMCS Integration** - Client and order management (API polling for payment status)
 6. **AI Content Generation** - OpenAI-powered content writing for each page
 7. **Fallback Templates** - Mock templates display when DUDA API is unavailable
+8. **Cloudflare DNS Management** - Manage 200+ domains from admin panel
+   - Auto-fetch all zones with single API token
+   - View, add, edit, delete DNS records (A, CNAME, MX, TXT, etc.)
+   - Quick-action "Point to DUDA" button for one-click domain setup
+   - Search/filter domains
 
 ## Design System (styles-new.css)
 ```css
@@ -99,6 +113,16 @@ church-web-global/
 ```
 
 ## Recent Changes
+- December 23, 2024: Added Cloudflare DNS Management to Admin Panel
+  - New "DNS" tab in admin panel navigation
+  - Auto-fetches all zones (200+ domains) with single API token
+  - Full DNS record management: view, add, edit, delete records
+  - Supports A, AAAA, CNAME, MX, TXT, NS, SRV record types
+  - "Point to DUDA" quick-action button for one-click domain setup
+  - Search/filter domains by name
+  - Modal-based DNS record editor with proxy toggle
+  - API status indicator for Cloudflare in Settings
+
 - December 12, 2024: Added Thumbnail Upload to Admin Templates
   - File upload for template thumbnails (JPEG, PNG, GIF, WebP up to 5MB)
   - Preview with remove button in template modal

@@ -401,6 +401,57 @@
             overflow-y: auto;
         }
         
+        #dns-records-modal,
+        #edit-record-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        #dns-records-modal .modal-content,
+        #edit-record-modal .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            color: #1E1B4B;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #64748b;
+        }
+        
+        .modal-close:hover {
+            color: #1E1B4B;
+        }
+        
+        .modal-body {
+            padding: 24px;
+        }
+        
         .modal h3 {
             color: #1E1B4B;
             margin-bottom: 20px;
@@ -683,6 +734,7 @@
                 <button data-section="sites">Sites</button>
                 <button data-section="trials">Trials</button>
                 <button data-section="templates">Templates</button>
+                <button data-section="dns">DNS</button>
                 <button data-section="email">Email</button>
                 <button data-section="settings">Settings</button>
                 <button class="logout-btn" id="logout-btn">Logout</button>
@@ -896,6 +948,152 @@
                 <div id="templates-list"></div>
             </div>
             
+            <!-- DNS Section -->
+            <div class="section" id="section-dns">
+                <div class="section-header">
+                    <h2>DNS Management (Cloudflare)</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" id="refresh-zones-btn">Refresh Zones</button>
+                    </div>
+                </div>
+                
+                <div id="dns-not-configured" style="display: none;">
+                    <div class="card" style="background: #fef3c7; border: 1px solid #f59e0b;">
+                        <div style="padding: 20px; text-align: center;">
+                            <h3 style="color: #92400e; margin-bottom: 8px;">Cloudflare API Not Configured</h3>
+                            <p style="color: #78350f;">Add your CLOUDFLARE_API_TOKEN to the Secrets tab to enable DNS management.</p>
+                            <p style="color: #78350f; font-size: 14px; margin-top: 12px;">
+                                Get your API token from: <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" style="color: #6B46C1;">Cloudflare Dashboard</a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="dns-configured">
+                    <div class="search-box">
+                        <input type="text" id="zone-search" placeholder="Search domains...">
+                        <button class="btn btn-secondary" id="search-zones-btn">Search</button>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Domains (<span id="zone-count">0</span>)</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Domain</th>
+                                        <th>Status</th>
+                                        <th>Type</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="zones-table-body">
+                                    <tr><td colspan="4" style="text-align: center;">Loading zones...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- DNS Records Modal -->
+            <div class="modal" id="dns-records-modal" style="display: none;">
+                <div class="modal-content" style="max-width: 900px;">
+                    <div class="modal-header">
+                        <h3 id="dns-modal-title">DNS Records - domain.com</h3>
+                        <button class="modal-close" id="close-dns-modal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+                            <button class="btn btn-success" id="add-record-btn">+ Add Record</button>
+                            <button class="btn btn-warning" id="quick-duda-btn">Point to DUDA</button>
+                        </div>
+                        
+                        <div id="dns-records-list">
+                            <div class="table-responsive">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Type</th>
+                                            <th>Name</th>
+                                            <th>Content</th>
+                                            <th>Proxy</th>
+                                            <th>TTL</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dns-records-body">
+                                        <tr><td colspan="6" style="text-align: center;">Loading records...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Add/Edit DNS Record Modal -->
+            <div class="modal" id="edit-record-modal" style="display: none;">
+                <div class="modal-content" style="max-width: 500px;">
+                    <div class="modal-header">
+                        <h3 id="record-modal-title">Add DNS Record</h3>
+                        <button class="modal-close" id="close-record-modal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="dns-record-form">
+                            <input type="hidden" id="record-id">
+                            <input type="hidden" id="record-zone-id">
+                            <div class="form-group">
+                                <label>Type</label>
+                                <select id="record-type" required>
+                                    <option value="A">A</option>
+                                    <option value="AAAA">AAAA</option>
+                                    <option value="CNAME">CNAME</option>
+                                    <option value="MX">MX</option>
+                                    <option value="TXT">TXT</option>
+                                    <option value="NS">NS</option>
+                                    <option value="SRV">SRV</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Name</label>
+                                <input type="text" id="record-name" required placeholder="@ for root, or subdomain">
+                            </div>
+                            <div class="form-group">
+                                <label>Content</label>
+                                <input type="text" id="record-content" required placeholder="IP address or target">
+                            </div>
+                            <div class="form-group" id="priority-group" style="display: none;">
+                                <label>Priority (MX only)</label>
+                                <input type="number" id="record-priority" value="10">
+                            </div>
+                            <div class="form-group">
+                                <label>TTL</label>
+                                <select id="record-ttl">
+                                    <option value="1">Auto</option>
+                                    <option value="60">1 minute</option>
+                                    <option value="300">5 minutes</option>
+                                    <option value="3600">1 hour</option>
+                                    <option value="86400">1 day</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" id="record-proxied" checked>
+                                    Proxied through Cloudflare
+                                </label>
+                            </div>
+                            <div style="display: flex; gap: 12px;">
+                                <button type="submit" class="btn btn-primary">Save Record</button>
+                                <button type="button" class="btn btn-secondary" id="cancel-record-btn">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Email Section -->
             <div class="section" id="section-email">
                 <div class="section-header">
@@ -1000,6 +1198,10 @@
                         <div style="display: flex; justify-content: space-between; padding: 12px; background: #f9fafb; border-radius: 8px;">
                             <span>Database</span>
                             <span id="db-status" class="status-badge">Checking...</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 12px; background: #f9fafb; border-radius: 8px;">
+                            <span>Cloudflare API</span>
+                            <span id="cloudflare-status" class="status-badge">Checking...</span>
                         </div>
                     </div>
                 </div>

@@ -173,6 +173,7 @@ function switchSection(sectionName) {
     if (sectionName === 'sites') loadSites(1);
     if (sectionName === 'trials') loadTrials('active');
     if (sectionName === 'settings') loadApiStatus();
+    if (sectionName === 'dns') loadDnsZones();
 }
 
 async function loadDashboardData() {
@@ -896,6 +897,9 @@ async function loadApiStatus() {
             updateStatusBadge('whmcs-status', data.whmcs);
             updateStatusBadge('postmark-status', data.postmark);
             updateStatusBadge('db-status', data.database);
+            updateStatusBadge('cloudflare-status', data.cloudflare);
+            
+            window.cloudflareConfigured = data.cloudflare;
         }
     } catch (error) {
         console.error('Error loading API status:', error);
@@ -955,3 +959,299 @@ function renderPagination(containerId, total, currentPage, pageSize, callback) {
     
     container.innerHTML = html;
 }
+
+// ============================================
+// DNS MANAGEMENT FUNCTIONS
+// ============================================
+
+let allZones = [];
+let currentZoneId = null;
+let currentZoneName = null;
+
+async function loadDnsZones() {
+    const tbody = document.getElementById('zones-table-body');
+    const notConfigured = document.getElementById('dns-not-configured');
+    const configured = document.getElementById('dns-configured');
+    
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;"><span class="loading-spinner"></span> Loading zones...</td></tr>';
+    
+    try {
+        const response = await authFetch('/api/admin/cloudflare/zones');
+        const data = await response.json();
+        
+        if (!data.success) {
+            if (data.error && data.error.includes('not configured')) {
+                notConfigured.style.display = 'block';
+                configured.style.display = 'none';
+                return;
+            }
+            throw new Error(data.error || 'Failed to load zones');
+        }
+        
+        notConfigured.style.display = 'none';
+        configured.style.display = 'block';
+        
+        allZones = data.zones || [];
+        document.getElementById('zone-count').textContent = allZones.length;
+        
+        renderZonesTable(allZones);
+    } catch (error) {
+        console.error('Error loading zones:', error);
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #dc2626;">Error: ${error.message}</td></tr>`;
+    }
+}
+
+function renderZonesTable(zones) {
+    const tbody = document.getElementById('zones-table-body');
+    
+    if (zones.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No domains found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = zones.map(zone => `
+        <tr>
+            <td><strong>${zone.name}</strong></td>
+            <td>
+                <span class="status-badge ${zone.status === 'active' ? 'status-active' : 'status-expired'}">
+                    ${zone.status}
+                </span>
+            </td>
+            <td>${zone.type || 'full'}</td>
+            <td>
+                <button class="btn btn-sm btn-primary" onclick="openDnsRecords('${zone.id}', '${zone.name}')">
+                    Manage DNS
+                </button>
+                <button class="btn btn-sm btn-warning" onclick="quickDudaSetup('${zone.id}', '${zone.name}')">
+                    Point to DUDA
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function filterZones() {
+    const search = document.getElementById('zone-search').value.toLowerCase();
+    const filtered = allZones.filter(zone => zone.name.toLowerCase().includes(search));
+    document.getElementById('zone-count').textContent = filtered.length;
+    renderZonesTable(filtered);
+}
+
+async function openDnsRecords(zoneId, zoneName) {
+    currentZoneId = zoneId;
+    currentZoneName = zoneName;
+    
+    document.getElementById('dns-modal-title').textContent = `DNS Records - ${zoneName}`;
+    document.getElementById('dns-records-modal').style.display = 'flex';
+    
+    await loadDnsRecords(zoneId);
+}
+
+async function loadDnsRecords(zoneId) {
+    const tbody = document.getElementById('dns-records-body');
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;"><span class="loading-spinner"></span> Loading records...</td></tr>';
+    
+    try {
+        const response = await authFetch(`/api/admin/cloudflare/zones/${zoneId}/dns`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to load DNS records');
+        }
+        
+        const records = data.records || [];
+        
+        if (records.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No DNS records found</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = records.map(record => `
+            <tr>
+                <td><span class="status-badge" style="background: #e0e7ff; color: #3730a3;">${record.type}</span></td>
+                <td>${record.name.replace(`.${currentZoneName}`, '') === currentZoneName ? '@' : record.name.replace(`.${currentZoneName}`, '')}</td>
+                <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${record.content}">${record.content}</td>
+                <td>${record.proxied ? '<span style="color: #f97316;">Proxied</span>' : '<span style="color: #6b7280;">DNS only</span>'}</td>
+                <td>${record.ttl === 1 ? 'Auto' : record.ttl + 's'}</td>
+                <td>
+                    <button class="btn btn-sm btn-secondary" onclick='editDnsRecord(${JSON.stringify(record)})'>Edit</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteDnsRecord('${record.id}')">Delete</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading DNS records:', error);
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #dc2626;">Error: ${error.message}</td></tr>`;
+    }
+}
+
+function closeDnsModal() {
+    document.getElementById('dns-records-modal').style.display = 'none';
+    currentZoneId = null;
+    currentZoneName = null;
+}
+
+function openAddRecordModal() {
+    document.getElementById('record-modal-title').textContent = 'Add DNS Record';
+    document.getElementById('record-id').value = '';
+    document.getElementById('record-zone-id').value = currentZoneId;
+    document.getElementById('dns-record-form').reset();
+    document.getElementById('record-proxied').checked = true;
+    document.getElementById('edit-record-modal').style.display = 'flex';
+}
+
+function editDnsRecord(record) {
+    document.getElementById('record-modal-title').textContent = 'Edit DNS Record';
+    document.getElementById('record-id').value = record.id;
+    document.getElementById('record-zone-id').value = currentZoneId;
+    document.getElementById('record-type').value = record.type;
+    document.getElementById('record-name').value = record.name.replace(`.${currentZoneName}`, '') === currentZoneName ? '@' : record.name.replace(`.${currentZoneName}`, '');
+    document.getElementById('record-content').value = record.content;
+    document.getElementById('record-ttl').value = record.ttl;
+    document.getElementById('record-proxied').checked = record.proxied;
+    
+    if (record.type === 'MX') {
+        document.getElementById('priority-group').style.display = 'block';
+        document.getElementById('record-priority').value = record.priority || 10;
+    } else {
+        document.getElementById('priority-group').style.display = 'none';
+    }
+    
+    document.getElementById('edit-record-modal').style.display = 'flex';
+}
+
+function closeRecordModal() {
+    document.getElementById('edit-record-modal').style.display = 'none';
+}
+
+async function handleDnsRecordSubmit(e) {
+    e.preventDefault();
+    
+    const recordId = document.getElementById('record-id').value;
+    const zoneId = document.getElementById('record-zone-id').value;
+    const isEdit = !!recordId;
+    
+    const recordData = {
+        type: document.getElementById('record-type').value,
+        name: document.getElementById('record-name').value,
+        content: document.getElementById('record-content').value,
+        ttl: parseInt(document.getElementById('record-ttl').value),
+        proxied: document.getElementById('record-proxied').checked
+    };
+    
+    if (recordData.type === 'MX') {
+        recordData.priority = parseInt(document.getElementById('record-priority').value);
+    }
+    
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span> Saving...';
+    
+    try {
+        const url = isEdit 
+            ? `/api/admin/cloudflare/zones/${zoneId}/dns/${recordId}`
+            : `/api/admin/cloudflare/zones/${zoneId}/dns`;
+        
+        const response = await authFetch(url, {
+            method: isEdit ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(recordData)
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(JSON.stringify(data.error) || 'Failed to save record');
+        }
+        
+        closeRecordModal();
+        await loadDnsRecords(zoneId);
+    } catch (error) {
+        alert('Error saving DNS record: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Record';
+    }
+}
+
+async function deleteDnsRecord(recordId) {
+    if (!confirm('Are you sure you want to delete this DNS record?')) return;
+    
+    try {
+        const response = await authFetch(`/api/admin/cloudflare/zones/${currentZoneId}/dns/${recordId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to delete record');
+        }
+        
+        await loadDnsRecords(currentZoneId);
+    } catch (error) {
+        alert('Error deleting DNS record: ' + error.message);
+    }
+}
+
+async function quickDudaSetup(zoneId, zoneName) {
+    if (!confirm(`This will configure ${zoneName} to point to DUDA:\n\n- Root (@) A record → 34.102.136.180\n- www CNAME → cname.dudaone.com\n\nExisting records will be updated. Continue?`)) {
+        return;
+    }
+    
+    try {
+        const response = await authFetch(`/api/admin/cloudflare/zones/${zoneId}/quick-setup/duda`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to configure domain');
+        }
+        
+        alert(`Success! ${zoneName} is now configured for DUDA.\n\nChanges:\n${data.results.map(r => `${r.type}: ${r.action}`).join('\n')}`);
+        
+        if (currentZoneId === zoneId) {
+            await loadDnsRecords(zoneId);
+        }
+    } catch (error) {
+        alert('Error configuring domain for DUDA: ' + error.message);
+    }
+}
+
+// Event listeners for DNS section
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('refresh-zones-btn')?.addEventListener('click', loadDnsZones);
+    document.getElementById('search-zones-btn')?.addEventListener('click', filterZones);
+    document.getElementById('zone-search')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') filterZones();
+    });
+    
+    document.getElementById('close-dns-modal')?.addEventListener('click', closeDnsModal);
+    document.getElementById('add-record-btn')?.addEventListener('click', openAddRecordModal);
+    document.getElementById('quick-duda-btn')?.addEventListener('click', () => quickDudaSetup(currentZoneId, currentZoneName));
+    
+    document.getElementById('close-record-modal')?.addEventListener('click', closeRecordModal);
+    document.getElementById('cancel-record-btn')?.addEventListener('click', closeRecordModal);
+    document.getElementById('dns-record-form')?.addEventListener('submit', handleDnsRecordSubmit);
+    
+    document.getElementById('record-type')?.addEventListener('change', (e) => {
+        const priorityGroup = document.getElementById('priority-group');
+        if (e.target.value === 'MX') {
+            priorityGroup.style.display = 'block';
+        } else {
+            priorityGroup.style.display = 'none';
+        }
+    });
+    
+    document.getElementById('dns-records-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'dns-records-modal') closeDnsModal();
+    });
+    
+    document.getElementById('edit-record-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'edit-record-modal') closeRecordModal();
+    });
+});
