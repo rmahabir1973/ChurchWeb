@@ -320,6 +320,135 @@ console.log(`WHMCS API configured: ${WHMCS_API_URL ? 'Yes' : 'No'}`);
 const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
 console.log(`Cloudflare API configured: ${CLOUDFLARE_API_TOKEN ? 'Yes' : 'No'}`);
 
+// SmarterMail API Configuration
+const SMARTERMAIL_URL = process.env.SMARTERMAIL_URL;
+const SMARTERMAIL_ADMIN_USER = process.env.SMARTERMAIL_ADMIN_USER;
+const SMARTERMAIL_ADMIN_PASSWORD = process.env.SMARTERMAIL_ADMIN_PASSWORD;
+console.log(`SmarterMail API configured: ${SMARTERMAIL_URL ? 'Yes' : 'No'}`);
+
+// SmarterMail token cache (tokens expire every 15 minutes)
+let smarterMailTokenCache = {
+    accessToken: null,
+    refreshToken: null,
+    expiresAt: null
+};
+
+// Helper function for SmarterMail authentication
+async function getSmarterMailToken() {
+    if (!SMARTERMAIL_URL || !SMARTERMAIL_ADMIN_USER || !SMARTERMAIL_ADMIN_PASSWORD) {
+        return { success: false, error: 'SmarterMail not configured' };
+    }
+    
+    // Check if we have a valid cached token (with 1 minute buffer)
+    if (smarterMailTokenCache.accessToken && smarterMailTokenCache.expiresAt > Date.now() + 60000) {
+        return { success: true, token: smarterMailTokenCache.accessToken };
+    }
+    
+    // Try to refresh if we have a refresh token
+    if (smarterMailTokenCache.refreshToken) {
+        try {
+            const refreshResponse = await axios.post(`${SMARTERMAIL_URL}/api/v1/auth/refresh-token`, {
+                token: smarterMailTokenCache.refreshToken
+            }, {
+                headers: { 'Content-Type': 'application/json' },
+                timeout: 10000
+            });
+            
+            if (refreshResponse.data.accessToken) {
+                smarterMailTokenCache.accessToken = refreshResponse.data.accessToken;
+                smarterMailTokenCache.refreshToken = refreshResponse.data.refreshToken;
+                smarterMailTokenCache.expiresAt = Date.now() + (14 * 60 * 1000); // 14 minutes
+                return { success: true, token: smarterMailTokenCache.accessToken };
+            }
+        } catch (refreshError) {
+            console.log('SmarterMail token refresh failed, re-authenticating...');
+        }
+    }
+    
+    // Authenticate with username/password
+    try {
+        const authResponse = await axios.post(`${SMARTERMAIL_URL}/api/v1/auth/authenticate-user`, {
+            username: SMARTERMAIL_ADMIN_USER,
+            password: SMARTERMAIL_ADMIN_PASSWORD
+        }, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 10000
+        });
+        
+        if (authResponse.data.accessToken) {
+            smarterMailTokenCache.accessToken = authResponse.data.accessToken;
+            smarterMailTokenCache.refreshToken = authResponse.data.refreshToken;
+            smarterMailTokenCache.expiresAt = Date.now() + (14 * 60 * 1000); // 14 minutes
+            return { success: true, token: smarterMailTokenCache.accessToken };
+        } else {
+            return { success: false, error: 'Authentication failed - no token received' };
+        }
+    } catch (error) {
+        const statusCode = error.response?.status;
+        const errorData = error.response?.data || { message: error.message };
+        console.error(`SmarterMail Auth Error [${statusCode}]:`, errorData);
+        return { success: false, error: errorData.message || 'Authentication failed', statusCode };
+    }
+}
+
+// Helper function for SmarterMail API calls
+async function callSmarterMailAPI(method, endpoint, data = null) {
+    const tokenResult = await getSmarterMailToken();
+    if (!tokenResult.success) {
+        return tokenResult;
+    }
+    
+    try {
+        const config = {
+            method: method,
+            url: `${SMARTERMAIL_URL}/api/v1${endpoint}`,
+            headers: {
+                'Authorization': `Bearer ${tokenResult.token}`,
+                'Content-Type': 'application/json'
+            },
+            timeout: 30000
+        };
+        
+        if (data) {
+            config.data = data;
+        }
+        
+        console.log(`SmarterMail API Request: ${method} ${endpoint}`);
+        const response = await axios(config);
+        return { success: true, data: response.data };
+    } catch (error) {
+        const statusCode = error.response?.status;
+        const errorData = error.response?.data || { message: error.message };
+        console.error(`SmarterMail API Error [${statusCode}]:`, errorData);
+        
+        // If unauthorized, clear token cache and retry once
+        if (statusCode === 401) {
+            smarterMailTokenCache = { accessToken: null, refreshToken: null, expiresAt: null };
+            const retryToken = await getSmarterMailToken();
+            if (retryToken.success) {
+                try {
+                    const retryConfig = {
+                        method: method,
+                        url: `${SMARTERMAIL_URL}/api/v1${endpoint}`,
+                        headers: {
+                            'Authorization': `Bearer ${retryToken.token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        timeout: 30000
+                    };
+                    if (data) retryConfig.data = data;
+                    const retryResponse = await axios(retryConfig);
+                    return { success: true, data: retryResponse.data };
+                } catch (retryError) {
+                    return { success: false, error: retryError.response?.data || retryError.message, statusCode: retryError.response?.status };
+                }
+            }
+        }
+        
+        return { success: false, error: errorData, statusCode };
+    }
+}
+
 // Helper function for Cloudflare API calls
 async function callCloudflareAPI(method, endpoint, data = null) {
     if (!CLOUDFLARE_API_TOKEN) {
@@ -2940,8 +3069,9 @@ app.get('/api/admin/api-status', requireAdmin, async (req, res) => {
         const postmark = !!process.env.POSTMARK_API_TOKEN;
         const database = !!process.env.DATABASE_URL;
         const cloudflare = !!CLOUDFLARE_API_TOKEN;
+        const smartermail = !!SMARTERMAIL_URL && !!SMARTERMAIL_ADMIN_USER && !!SMARTERMAIL_ADMIN_PASSWORD;
         
-        res.json({ success: true, duda, whmcs, postmark, database, cloudflare });
+        res.json({ success: true, duda, whmcs, postmark, database, cloudflare, smartermail });
     } catch (error) {
         res.status(500).json({ success: false, error: 'Failed to check status' });
     }
@@ -3300,6 +3430,230 @@ app.post('/api/admin/cloudflare/zones/:zoneId/quick-setup/duda', requireAdmin, a
     } catch (error) {
         console.error('DUDA quick setup error:', error);
         res.status(500).json({ success: false, error: 'Failed to configure domain for DUDA' });
+    }
+});
+
+// ============================================
+// SMARTERMAIL API ENDPOINTS
+// ============================================
+
+// Get all SmarterMail domains
+app.get('/api/admin/smartermail/domains', requireAdmin, async (req, res) => {
+    try {
+        if (!SMARTERMAIL_URL || !SMARTERMAIL_ADMIN_USER || !SMARTERMAIL_ADMIN_PASSWORD) {
+            return res.status(400).json({ success: false, error: 'SmarterMail not configured. Add SMARTERMAIL_URL, SMARTERMAIL_ADMIN_USER, and SMARTERMAIL_ADMIN_PASSWORD to secrets.' });
+        }
+        
+        const result = await callSmarterMailAPI('GET', '/settings/sysadmin/domain-list');
+        
+        if (!result.success) {
+            return res.status(500).json({ success: false, error: result.error });
+        }
+        
+        // Transform and normalize domain list for UI (sanitize raw SmarterMail data)
+        const rawDomains = result.data.domainList || [];
+        const domains = rawDomains.map(d => ({
+            name: typeof d === 'string' ? d : (d.name || d.domainName || 'Unknown'),
+            userCount: d.userCount || null,
+            path: d.path || null
+        }));
+        res.json({ success: true, domains });
+    } catch (error) {
+        console.error('Get SmarterMail domains error:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch domains' });
+    }
+});
+
+// Get single domain details
+app.get('/api/admin/smartermail/domains/:domain', requireAdmin, async (req, res) => {
+    try {
+        const { domain } = req.params;
+        const result = await callSmarterMailAPI('GET', `/settings/domain/${domain}`);
+        
+        if (!result.success) {
+            return res.status(500).json({ success: false, error: result.error });
+        }
+        
+        // Sanitize domain response - only return needed fields
+        const rawDomain = result.data || {};
+        const domainInfo = {
+            name: rawDomain.domainName || domain,
+            userCount: rawDomain.userCount || null,
+            maxUsers: rawDomain.maxUsers || null,
+            maxDiskSpace: rawDomain.maxDiskSpace || null,
+            isEnabled: rawDomain.isEnabled !== false
+        };
+        
+        res.json({ success: true, domain: domainInfo });
+    } catch (error) {
+        console.error('Get SmarterMail domain error:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch domain details' });
+    }
+});
+
+// Get users for a domain
+app.get('/api/admin/smartermail/domains/:domain/users', requireAdmin, async (req, res) => {
+    try {
+        const { domain } = req.params;
+        
+        // Use account-list-search to get all users for a domain
+        const result = await callSmarterMailAPI('POST', '/settings/domain/account-list-search', {
+            query: '',
+            domainName: domain,
+            sortField: 'emailAddress',
+            sortDescending: false,
+            skip: 0,
+            take: 1000
+        });
+        
+        if (!result.success) {
+            return res.status(500).json({ success: false, error: result.error });
+        }
+        
+        // Normalize and sanitize user data for UI
+        const rawUsers = result.data.accounts || [];
+        const users = rawUsers.map(u => ({
+            emailAddress: u.emailAddress || u.userName || 'Unknown',
+            displayName: u.displayName || u.fullName || null,
+            mailboxSizeUsed: u.mailboxSizeUsed || u.size || 0,
+            mailboxSizeLimit: u.mailboxSizeLimit || u.maxSize || 0,
+            isEnabled: u.isEnabled !== false
+        }));
+        const totalUsers = result.data.total || users.length;
+        
+        res.json({ success: true, users, total: totalUsers });
+    } catch (error) {
+        console.error('Get SmarterMail users error:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch users' });
+    }
+});
+
+// Create a new user
+app.post('/api/admin/smartermail/domains/:domain/users', requireAdmin, async (req, res) => {
+    try {
+        const { domain } = req.params;
+        const { username, password, fullName, mailboxSizeMB } = req.body;
+        
+        if (!username || !password) {
+            return res.status(400).json({ success: false, error: 'Username and password are required' });
+        }
+        
+        const result = await callSmarterMailAPI('POST', '/settings/domain/user-put', {
+            userData: {
+                userName: username,
+                domainName: domain,
+                fullName: fullName || username,
+                password: password,
+                securityFlags: {
+                    authType: 0, // SmarterMail auth
+                    isDomainAdmin: false
+                },
+                isPasswordExpired: false,
+                userMailSettings: {
+                    maxSize: mailboxSizeMB ? mailboxSizeMB * 1024 * 1024 : 500 * 1024 * 1024 // Default 500MB
+                }
+            }
+        });
+        
+        if (!result.success) {
+            return res.status(500).json({ success: false, error: result.error });
+        }
+        
+        res.json({ success: true, message: `User ${username}@${domain} created successfully` });
+    } catch (error) {
+        console.error('Create SmarterMail user error:', error);
+        res.status(500).json({ success: false, error: 'Failed to create user' });
+    }
+});
+
+// Delete a user
+app.delete('/api/admin/smartermail/domains/:domain/users/:username', requireAdmin, async (req, res) => {
+    try {
+        const { domain, username } = req.params;
+        
+        const result = await callSmarterMailAPI('POST', '/settings/domain/user-delete', {
+            userName: username,
+            domainName: domain
+        });
+        
+        if (!result.success) {
+            return res.status(500).json({ success: false, error: result.error });
+        }
+        
+        res.json({ success: true, message: `User ${username}@${domain} deleted successfully` });
+    } catch (error) {
+        console.error('Delete SmarterMail user error:', error);
+        res.status(500).json({ success: false, error: 'Failed to delete user' });
+    }
+});
+
+// Update user (change password, mailbox size, etc.)
+app.put('/api/admin/smartermail/domains/:domain/users/:username', requireAdmin, async (req, res) => {
+    try {
+        const { domain, username } = req.params;
+        const { password, fullName, mailboxSizeMB, isEnabled } = req.body;
+        
+        const userData = {
+            userName: username,
+            domainName: domain
+        };
+        
+        if (password) userData.password = password;
+        if (fullName) userData.fullName = fullName;
+        if (mailboxSizeMB !== undefined) {
+            userData.userMailSettings = {
+                maxSize: mailboxSizeMB * 1024 * 1024
+            };
+        }
+        if (isEnabled !== undefined) {
+            userData.isEnabled = isEnabled;
+        }
+        
+        const result = await callSmarterMailAPI('POST', '/settings/domain/user-put', {
+            userData: userData
+        });
+        
+        if (!result.success) {
+            return res.status(500).json({ success: false, error: result.error });
+        }
+        
+        res.json({ success: true, message: `User ${username}@${domain} updated successfully` });
+    } catch (error) {
+        console.error('Update SmarterMail user error:', error);
+        res.status(500).json({ success: false, error: 'Failed to update user' });
+    }
+});
+
+// Get domain statistics/summary
+app.get('/api/admin/smartermail/stats', requireAdmin, async (req, res) => {
+    try {
+        if (!SMARTERMAIL_URL || !SMARTERMAIL_ADMIN_USER || !SMARTERMAIL_ADMIN_PASSWORD) {
+            return res.status(400).json({ success: false, error: 'SmarterMail not configured' });
+        }
+        
+        // Get domain list to count
+        const domainsResult = await callSmarterMailAPI('GET', '/settings/sysadmin/domain-list');
+        
+        if (!domainsResult.success) {
+            return res.status(500).json({ success: false, error: domainsResult.error });
+        }
+        
+        const domains = domainsResult.data.domainList || [];
+        
+        res.json({ 
+            success: true, 
+            stats: {
+                totalDomains: domains.length,
+                domains: domains.map(d => ({
+                    name: d.name || d.domainName || d,
+                    path: d.path,
+                    userCount: d.userCount
+                }))
+            }
+        });
+    } catch (error) {
+        console.error('Get SmarterMail stats error:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch stats' });
     }
 });
 

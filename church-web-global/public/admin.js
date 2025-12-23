@@ -174,6 +174,7 @@ function switchSection(sectionName) {
     if (sectionName === 'trials') loadTrials('active');
     if (sectionName === 'settings') loadApiStatus();
     if (sectionName === 'dns') loadDnsZones();
+    if (sectionName === 'mail') loadMailDomains();
 }
 
 async function loadDashboardData() {
@@ -898,8 +899,10 @@ async function loadApiStatus() {
             updateStatusBadge('postmark-status', data.postmark);
             updateStatusBadge('db-status', data.database);
             updateStatusBadge('cloudflare-status', data.cloudflare);
+            updateStatusBadge('smartermail-status', data.smartermail);
             
             window.cloudflareConfigured = data.cloudflare;
+            window.smartermailConfigured = data.smartermail;
         }
     } catch (error) {
         console.error('Error loading API status:', error);
@@ -1221,6 +1224,278 @@ async function quickDudaSetup(zoneId, zoneName) {
         alert('Error configuring domain for DUDA: ' + error.message);
     }
 }
+
+// ============================================
+// MAIL (SMARTERMAIL) MANAGEMENT FUNCTIONS
+// ============================================
+
+let allMailDomains = [];
+let currentMailDomain = null;
+
+async function loadMailDomains() {
+    const tbody = document.getElementById('mail-domains-table-body');
+    const notConfigured = document.getElementById('mail-not-configured');
+    const configured = document.getElementById('mail-configured');
+    
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;"><span class="loading-spinner"></span> Loading domains...</td></tr>';
+    
+    try {
+        const response = await authFetch('/api/admin/smartermail/domains');
+        const data = await response.json();
+        
+        if (!data.success) {
+            if (data.error && (data.error.includes('not configured') || data.error.includes('SmarterMail'))) {
+                notConfigured.style.display = 'block';
+                configured.style.display = 'none';
+                return;
+            }
+            throw new Error(data.error || 'Failed to load mail domains');
+        }
+        
+        notConfigured.style.display = 'none';
+        configured.style.display = 'block';
+        
+        allMailDomains = data.domains || [];
+        document.getElementById('mail-domain-count').textContent = allMailDomains.length;
+        
+        renderMailDomainsTable(allMailDomains);
+    } catch (error) {
+        console.error('Error loading mail domains:', error);
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #dc2626;">Error: ${error.message}</td></tr>`;
+    }
+}
+
+function renderMailDomainsTable(domains) {
+    const tbody = document.getElementById('mail-domains-table-body');
+    
+    if (domains.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No mail domains found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = domains.map(domain => {
+        // Handle normalized domain object with { name, userCount, path }
+        const domainName = domain.name || 'Unknown';
+        const userCount = domain.userCount !== null ? domain.userCount : '-';
+        return `
+        <tr>
+            <td><strong>${domainName}</strong></td>
+            <td>${userCount}</td>
+            <td>
+                <button class="btn btn-secondary btn-sm" onclick="openMailUsersModal('${domainName}')">Manage Users</button>
+            </td>
+        </tr>
+    `;
+    }).join('');
+}
+
+function filterMailDomains() {
+    const query = document.getElementById('mail-domain-search')?.value?.toLowerCase() || '';
+    
+    const filtered = allMailDomains.filter(domain => {
+        // Handle normalized domain object with { name, userCount, path }
+        const domainName = domain.name || '';
+        return domainName.toLowerCase().includes(query);
+    });
+    
+    renderMailDomainsTable(filtered);
+}
+
+async function openMailUsersModal(domainName) {
+    currentMailDomain = domainName;
+    document.getElementById('mail-users-modal-title').textContent = `Users - ${domainName}`;
+    document.getElementById('mail-users-modal').style.display = 'flex';
+    document.getElementById('mail-user-domain').value = domainName;
+    
+    await loadMailUsers(domainName);
+}
+
+function closeMailUsersModal() {
+    document.getElementById('mail-users-modal').style.display = 'none';
+    currentMailDomain = null;
+}
+
+async function loadMailUsers(domainName) {
+    const tbody = document.getElementById('mail-users-body');
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;"><span class="loading-spinner"></span> Loading users...</td></tr>';
+    
+    try {
+        const response = await authFetch(`/api/admin/smartermail/domains/${encodeURIComponent(domainName)}/users`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to load users');
+        }
+        
+        const users = data.users || [];
+        document.getElementById('mail-users-count-label').textContent = `${users.length} user${users.length !== 1 ? 's' : ''}`;
+        
+        if (users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No users found</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = users.map(user => {
+            // Handle normalized user object with { emailAddress, displayName, mailboxSizeUsed, mailboxSizeLimit, isEnabled }
+            const email = user.emailAddress || 'Unknown';
+            const fullName = user.displayName || '-';
+            const size = user.mailboxSizeUsed > 0 ? formatBytes(user.mailboxSizeUsed) : '-';
+            const username = email.split('@')[0];
+            const escapedFullName = fullName.replace(/'/g, "\\'");
+            
+            return `
+            <tr>
+                <td><strong>${email}</strong></td>
+                <td>${fullName}</td>
+                <td>${size}</td>
+                <td>
+                    <button class="btn btn-secondary btn-sm" onclick="openEditMailUser('${username}', '${escapedFullName}')">Edit</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteMailUser('${username}')">Delete</button>
+                </td>
+            </tr>
+        `;
+        }).join('');
+    } catch (error) {
+        console.error('Error loading mail users:', error);
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #dc2626;">Error: ${error.message}</td></tr>`;
+    }
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function openAddMailUserModal() {
+    document.getElementById('mail-user-modal-title').textContent = 'Add Mail User';
+    document.getElementById('mail-user-editing').value = '';
+    document.getElementById('mail-user-username').value = '';
+    document.getElementById('mail-user-username').disabled = false;
+    document.getElementById('mail-user-fullname').value = '';
+    document.getElementById('mail-user-password').value = '';
+    document.getElementById('mail-user-password').placeholder = 'Password (required)';
+    document.getElementById('mail-user-password').required = true;
+    document.getElementById('mail-user-size').value = '500';
+    document.getElementById('edit-mail-user-modal').style.display = 'flex';
+}
+
+function openEditMailUser(username, fullName) {
+    document.getElementById('mail-user-modal-title').textContent = 'Edit Mail User';
+    document.getElementById('mail-user-editing').value = username;
+    document.getElementById('mail-user-username').value = username;
+    document.getElementById('mail-user-username').disabled = true;
+    document.getElementById('mail-user-fullname').value = fullName !== '-' ? fullName : '';
+    document.getElementById('mail-user-password').value = '';
+    document.getElementById('mail-user-password').placeholder = 'Leave blank to keep current';
+    document.getElementById('mail-user-password').required = false;
+    document.getElementById('edit-mail-user-modal').style.display = 'flex';
+}
+
+function closeMailUserModal() {
+    document.getElementById('edit-mail-user-modal').style.display = 'none';
+}
+
+async function handleMailUserSubmit(e) {
+    e.preventDefault();
+    
+    const domain = document.getElementById('mail-user-domain').value;
+    const editing = document.getElementById('mail-user-editing').value;
+    const username = document.getElementById('mail-user-username').value;
+    const fullName = document.getElementById('mail-user-fullname').value;
+    const password = document.getElementById('mail-user-password').value;
+    const mailboxSizeMB = parseInt(document.getElementById('mail-user-size').value);
+    
+    if (!editing && !password) {
+        alert('Password is required for new users');
+        return;
+    }
+    
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span> Saving...';
+    
+    try {
+        const url = editing 
+            ? `/api/admin/smartermail/domains/${encodeURIComponent(domain)}/users/${encodeURIComponent(username)}`
+            : `/api/admin/smartermail/domains/${encodeURIComponent(domain)}/users`;
+        
+        const method = editing ? 'PUT' : 'POST';
+        
+        const body = { username, fullName, mailboxSizeMB };
+        if (password) body.password = password;
+        
+        const response = await authFetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to save user');
+        }
+        
+        closeMailUserModal();
+        await loadMailUsers(currentMailDomain);
+        alert(data.message || `User ${editing ? 'updated' : 'created'} successfully`);
+    } catch (error) {
+        alert('Error saving user: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save User';
+    }
+}
+
+async function deleteMailUser(username) {
+    if (!confirm(`Are you sure you want to delete ${username}@${currentMailDomain}?\n\nThis will permanently delete the mailbox and all emails.`)) {
+        return;
+    }
+    
+    try {
+        const response = await authFetch(`/api/admin/smartermail/domains/${encodeURIComponent(currentMailDomain)}/users/${encodeURIComponent(username)}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to delete user');
+        }
+        
+        await loadMailUsers(currentMailDomain);
+        alert(data.message || 'User deleted successfully');
+    } catch (error) {
+        alert('Error deleting user: ' + error.message);
+    }
+}
+
+// Event listeners for Mail section
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('refresh-mail-domains-btn')?.addEventListener('click', loadMailDomains);
+    document.getElementById('search-mail-domains-btn')?.addEventListener('click', filterMailDomains);
+    document.getElementById('mail-domain-search')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') filterMailDomains();
+    });
+    
+    document.getElementById('close-mail-users-modal')?.addEventListener('click', closeMailUsersModal);
+    document.getElementById('add-mail-user-btn')?.addEventListener('click', openAddMailUserModal);
+    
+    document.getElementById('close-mail-user-modal')?.addEventListener('click', closeMailUserModal);
+    document.getElementById('cancel-mail-user-btn')?.addEventListener('click', closeMailUserModal);
+    document.getElementById('mail-user-form')?.addEventListener('submit', handleMailUserSubmit);
+    
+    document.getElementById('mail-users-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'mail-users-modal') closeMailUsersModal();
+    });
+    
+    document.getElementById('edit-mail-user-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'edit-mail-user-modal') closeMailUserModal();
+    });
+});
 
 // Event listeners for DNS section
 document.addEventListener('DOMContentLoaded', () => {

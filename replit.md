@@ -54,6 +54,15 @@ church-web-global/
 - `DELETE /api/admin/cloudflare/zones/:zoneId/dns/:recordId` - Delete a DNS record
 - `POST /api/admin/cloudflare/zones/:zoneId/quick-setup/duda` - Quick action: Point domain to DUDA
 
+### SmarterMail Management (Admin)
+- `GET /api/admin/smartermail/domains` - List all mail domains
+- `GET /api/admin/smartermail/domains/:domain` - Get domain details
+- `GET /api/admin/smartermail/domains/:domain/users` - List all users for a domain
+- `POST /api/admin/smartermail/domains/:domain/users` - Create a new mail user
+- `PUT /api/admin/smartermail/domains/:domain/users/:username` - Update a mail user
+- `DELETE /api/admin/smartermail/domains/:domain/users/:username` - Delete a mail user
+- `GET /api/admin/smartermail/stats` - Get mail server statistics
+
 ### Other
 - `GET /api/test` - Health check
 - `POST /api/signup` - Handle user signup
@@ -69,6 +78,9 @@ church-web-global/
 - `WHMCS_PRODUCT_PROFESSIONAL` - WHMCS product ID for Professional plan
 - `WHMCS_PRODUCT_ENTERPRISE` - WHMCS product ID for Enterprise plan
 - `CLOUDFLARE_API_TOKEN` - Cloudflare API token (get from https://dash.cloudflare.com/profile/api-tokens)
+- `SMARTERMAIL_URL` - SmarterMail server URL (e.g., https://mail.churchwebsupport.com)
+- `SMARTERMAIL_ADMIN_USER` - SmarterMail system admin email
+- `SMARTERMAIL_ADMIN_PASSWORD` - SmarterMail system admin password
 
 ## Features
 1. **Modern SaaS Landing Page** (NEW)
@@ -96,6 +108,11 @@ church-web-global/
    - View, add, edit, delete DNS records (A, CNAME, MX, TXT, etc.)
    - Quick-action "Point to DUDA" button for one-click domain setup
    - Search/filter domains
+9. **SmarterMail Integration** - Manage mail server domains and users
+   - List all mail domains
+   - Add/edit/delete mail users per domain
+   - Set mailbox sizes and reset passwords
+   - JWT authentication with automatic token refresh
 
 ## Design System (styles-new.css)
 ```css
