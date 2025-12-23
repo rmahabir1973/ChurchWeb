@@ -3876,17 +3876,37 @@ app.post('/api/admin/mcp/sites/create', requireAdmin, async (req, res) => {
         
         const { templateId, siteName, designId, churchInfo } = req.body;
         
-        if (!templateId) {
-            return res.status(400).json({ success: false, error: 'Template ID is required' });
+        // Input validation
+        if (!templateId || typeof templateId !== 'string') {
+            return res.status(400).json({ success: false, error: 'Valid template ID is required' });
+        }
+        
+        // Sanitize templateId - only allow alphanumeric, hyphens, underscores
+        const sanitizedTemplateId = templateId.replace(/[^a-zA-Z0-9_-]/g, '');
+        if (sanitizedTemplateId !== templateId) {
+            return res.status(400).json({ success: false, error: 'Template ID contains invalid characters' });
+        }
+        
+        // Validate designId if provided
+        if (designId && !CHURCH_TEMPLATE_DESIGNS[designId]) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Invalid design ID',
+                validDesigns: Object.keys(CHURCH_TEMPLATE_DESIGNS)
+            });
         }
         
         // Create site from template
         const createOptions = {
-            template_id: templateId
+            template_id: sanitizedTemplateId
         };
         
+        // Sanitize siteName - only allow alphanumeric and hyphens
         if (siteName) {
-            createOptions.default_domain_prefix = siteName;
+            const sanitizedSiteName = String(siteName).replace(/[^a-zA-Z0-9-]/g, '').substring(0, 50);
+            if (sanitizedSiteName) {
+                createOptions.default_domain_prefix = sanitizedSiteName;
+            }
         }
         
         const site = await dudaClient.sites.create(createOptions);
@@ -4098,11 +4118,18 @@ app.post('/api/admin/mcp/create-master-templates', requireAdmin, async (req, res
         
         const { baseTemplateId } = req.body;
         
-        if (!baseTemplateId) {
+        // Input validation
+        if (!baseTemplateId || typeof baseTemplateId !== 'string') {
             return res.status(400).json({ 
                 success: false, 
                 error: 'Base template ID is required. Get available templates from GET /api/admin/mcp/duda-templates'
             });
+        }
+        
+        // Sanitize baseTemplateId - only allow alphanumeric, hyphens, underscores
+        const sanitizedBaseTemplateId = baseTemplateId.replace(/[^a-zA-Z0-9_-]/g, '');
+        if (sanitizedBaseTemplateId !== baseTemplateId) {
+            return res.status(400).json({ success: false, error: 'Base template ID contains invalid characters' });
         }
         
         const results = [];
@@ -4114,7 +4141,7 @@ app.post('/api/admin/mcp/create-master-templates', requireAdmin, async (req, res
                 
                 // Create site from base template
                 const site = await dudaClient.sites.create({
-                    template_id: baseTemplateId,
+                    template_id: sanitizedBaseTemplateId,
                     default_domain_prefix: `church-${designId}-master`
                 });
                 

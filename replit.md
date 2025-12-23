@@ -63,6 +63,18 @@ church-web-global/
 - `DELETE /api/admin/smartermail/domains/:domain/users/:username` - Delete a mail user
 - `GET /api/admin/smartermail/stats` - Get mail server statistics
 
+### DUDA MCP Template Creation (Admin)
+- `GET /api/admin/mcp/test` - Test DUDA Partner API and MCP connection
+- `GET /api/admin/mcp/template-designs` - List 6 available church design styles
+- `GET /api/admin/mcp/collection-schema` - Get ChurchData collection schema
+- `GET /api/admin/mcp/duda-templates` - List all DUDA templates in account
+- `GET /api/admin/mcp/sites` - List all sites in DUDA account
+- `GET /api/admin/mcp/sites/:siteName` - Get site details
+- `POST /api/admin/mcp/sites/create` - Create new site from template with design theme
+- `POST /api/admin/mcp/sites/:siteName/create-collection` - Add ChurchData collection to site
+- `POST /api/admin/mcp/generate-template` - Generate template using AI description
+- `POST /api/admin/mcp/create-master-templates` - Batch create all 6 master templates
+
 ### Other
 - `GET /api/test` - Health check
 - `POST /api/signup` - Handle user signup
@@ -130,6 +142,15 @@ church-web-global/
 ```
 
 ## Recent Changes
+- December 23, 2024: Added DUDA MCP Template Creation Integration
+  - New "MCP" tab in admin panel for AI-powered template management
+  - Integrated @dudadev/partner-api for direct DUDA API access
+  - 6 pre-defined church design themes: Modern Minimalist, Traditional Classic, Warm Community, Bold & Dynamic, Pastoral Calm, Urban Contemporary
+  - ChurchData collection schema with 14 fields for standardized church data
+  - Batch template creation: Create all 6 master templates from a base template
+  - Admin UI shows connection status, design previews, and site management
+  - Endpoints for listing DUDA templates/sites, creating sites, applying themes
+
 - December 23, 2024: Added SmarterMail Integration to Admin Panel
   - New "Mail" tab in admin panel navigation for mail server management
   - JWT authentication with 60-second token caching and automatic 401 retry
