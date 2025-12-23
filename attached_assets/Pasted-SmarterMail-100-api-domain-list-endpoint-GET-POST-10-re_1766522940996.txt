@@ -1,0 +1,89 @@
+SmarterMail 100 api domain-list endpoint GET POST
+10 results
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Based on what I found, here's the key insight: Most SmarterMail API endpoints require POST requests with a JSON body, not GET requests. That's a pro tip from a SmarterTools developer that showed up in the search - you can use the browser's network inspector to see exactly what the web interface is calling.
+
+Let me get you the actual working code. Try this approach:
+
+Working Domain List Request
+javascript
+// First authenticate
+const authResponse = await fetch('https://mail.churchwebsupport.com/api/v1/auth/authenticate-user', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    username: 'your-admin@churchwebsupport.com',
+    password: 'yourpassword'
+  })
+});
+
+const authData = await authResponse.json();
+const accessToken = authData.accessToken;
+
+// Then get domains - this likely needs a POST with search params
+const domainsResponse = await fetch('https://mail.churchwebsupport.com/api/v1/settings/sysadmin/domain-list-search', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    skip: 0,
+    take: 100,
+    search: null,
+    sortField: 'domainName',
+    sortDescending: false
+  })
+});
+
+const domains = await domainsResponse.json();
+console.log(domains);
+Better Approach: Use Browser Dev Tools
+Here's the trick a SmarterTools dev shared - the web interface uses the same API:
+
+Log into your SmarterMail web interface at https://mail.churchwebsupport.com
+Open Developer Tools (F12)
+Go to the Network tab
+Click to view domains in the interface
+Watch the network tab - you'll see the EXACT API call being made
+This will show you:
+
+The exact endpoint URL
+The HTTP method (GET/POST/etc)
+The request headers
+The request body (if POST)
+The response format
+Quick Verification
+Since you got a successful response from /api/v1/settings/sysadmin, you're authenticated correctly. The issue is just finding the right endpoint.
+
+Can you do me a favor? Log into your SmarterMail admin panel and check:
+
+Settings → API Documentation
+
+This should be at: https://mail.churchwebsupport.com/Documentation/api
+
+This will give you the EXACT endpoints available in your specific build. Look for anything related to domains under the sysadmin section.
+
+Let me know what you find, or if you can share what endpoints you see in that documentation - I can help you build the exact requests you need!

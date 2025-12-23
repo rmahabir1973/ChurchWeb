@@ -1,0 +1,52 @@
+SignalR Starting
+vendor-v-638962585960000000.js:29155 [2025-12-23T20:45:30.370Z] Information: Normalizing '/hubs/mail' to 'https://mail.churchwebsupport.com/hubs/mail'.
+vendor-v-638962585960000000.js:29155 [2025-12-23T20:45:30.474Z] Information: WebSocket connected to wss://mail.churchwebsupport.com/hubs/mail?id=FUzMIvp62sqp5NMxUPN_5g&access_token=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiJjaHVyY2h3ZWJhcHAiLCJuYW1lIjoiY2h1cmNod2ViYXBwIiwidXNlcm5hbWUiOiJjaHVyY2h3ZWJhcHAiLCJhZG1pbiI6IlRydWUiLCJyb290ZW1haWwiOiJjaHVyY2h3ZWJhcHAiLCJjbGFpbVZlcnNpb24iOiIxIiwicm9sZSI6WyJ1c2VyIiwiRG9tYWluQWRtaW4iLCJTeXNBZG1pbiJdLCJBZG1pbklkIjoiNDQ5ZmMzYzgtM2I1ZC00ZjNkLTgxYTktZjEyZjUyMmY2ZTcwIiwiQ2FuSW1wZXJzb25hdGUiOiJUcnVlIiwiSW1wZXJzb25hdGluZyI6IkZhbHNlIiwiQ2FuVmlld1Bhc3N3b3JkcyI6IlRydWUiLCJJc1JlZnJlc2giOiJUcnVlIiwiY2xpZW50SWQiOiJXRUJNQUlMLTYyZjU3NmNjLWYyOWMtNDAzOS1iZDQ5LTYyNDA0M2JlY2UxNyIsIm5iZiI6MTc2NjUyMjcyOSwiZXhwIjoxNzcxNzA2NzI5LCJpc3MiOiJzbWFydGVybWFpbCIsImF1ZCI6IioifQ.WsgFMRKFzIVUCB8wyYMYopUpvWMgASI_z68k4Ce334AditlLnjQMZeyawE6ZE4hI_mz1-VodwhtN50DhgnmwwP6HGJP5xC5jveSWGq_K3WiF20kU0u9op0jybOHqNo24UqluEgN3uZCzYH5a0VCooCv5344kghBkyRfAeBAe6pJSgb_5V0p-2Y3XiQUREWV616bC_m2r8jIye-YlhAT50egTT_Jt6qkpaXZr0wLGnjxxL6gBcO_kNaGTMYaRk4M9F6VF5wDNyKKymgETVsEwGr8LwbnEG9pMgBTgpGcPN11oQjhaKD958OKEgRt1UHimypqHIMFqBiggRvpdBLAZtg.
+vendor-v-638962585960000000.js:29155 [2025-12-23T20:45:30.475Z] Information: Using HubProtocol 'json'.
+site-v-638962585960000000.js:107 SignalR Connected
+site-v-638962585960000000.js:107 SignalR Started
+site-v-638962585960000000.js:107 [SignalR Self Check ntweq] Starting...
+site-v-638962585960000000.js:107 [SignalR Self Check ntweq] Got response from server: ntweq
+site-v-638962585960000000.js:107 [SignalR Self Check ntweq] Got result from server. SignalR is working! Check PASSED.
+background-redux-new.js:2 Fetch finished loading: POST "https://lastpass.com/segment/web-client/v1/batch".
+Gf @ background-redux-new.js:2
+Vf @ background-redux-new.js:2
+(anonymous) @ background-redux-new.js:2
+(anonymous) @ background-redux-new.js:2
+(anonymous) @ background-redux-new.js:2
+(anonymous) @ background-redux-new.js:2
+flush @ background-redux-new.js:2
+background-redux-new.js:2 Fetch finished loading: POST "https://lastpass.com/segment/web-client/v1/batch".
+Gf @ background-redux-new.js:2
+Vf @ background-redux-new.js:2
+(anonymous) @ background-redux-new.js:2
+(anonymous) @ background-redux-new.js:2
+(anonymous) @ background-redux-new.js:2
+(anonymous) @ background-redux-new.js:2
+flush @ background-redux-new.js:2
+setTimeout
+enqueue @ background-redux-new.js:2
+track @ background-redux-new.js:2
+(anonymous) @ background-redux-new.js:2
+h @ background-redux-new.js:2
+(anonymous) @ background-redux-new.js:2
+(anonymous) @ background-redux-new.js:2
+(anonymous) @ background-redux-new.js:2
+(anonymous) @ background-redux-new.js:2
+(anonymous) @ background-redux-new.js:2
+(anonymous) @ background-redux-new.js:2
+te @ background-redux-new.js:2
+(anonymous) @ background-redux-new.js:2
+p @ background-redux-new.js:2
+(anonymous) @ background-redux-new.js:2
+18XHR finished loading: GET "<URL>".
+2angular-v-638962585960000000.js:13695 XHR finished loading: POST "https://mail.churchwebsupport.com/api/v1/settings/sysadmin/domain-list-search".
+(anonymous) @ angular-v-638962585960000000.js:13695
+sendReq @ angular-v-638962585960000000.js:13421
+serverRequest @ angular-v-638962585960000000.js:13162
+processQueue @ angular-v-638962585960000000.js:18078
+(anonymous) @ angular-v-638962585960000000.js:18126
+$digest @ angular-v-638962585960000000.js:19245
+$apply @ angular-v-638962585960000000.js:19633
+(anonymous) @ angular-v-638962585960000000.js:29130
+dispatch @ angular-v-638962585960000000.js:2
+(anonymous) @ angular-v-638962585960000000.js:2

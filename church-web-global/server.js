@@ -3444,15 +3444,22 @@ app.get('/api/admin/smartermail/domains', requireAdmin, async (req, res) => {
             return res.status(400).json({ success: false, error: 'SmarterMail not configured. Add SMARTERMAIL_URL, SMARTERMAIL_ADMIN_USER, and SMARTERMAIL_ADMIN_PASSWORD to secrets.' });
         }
         
-        const result = await callSmarterMailAPI('GET', '/settings/sysadmin/domain-list');
+        // Correct endpoint: POST /settings/sysadmin/domain-list-search
+        const result = await callSmarterMailAPI('POST', '/settings/sysadmin/domain-list-search', {
+            skip: 0,
+            take: 500,
+            search: null,
+            sortField: 'domainName',
+            sortDescending: false
+        });
         
         if (!result.success) {
             return res.status(500).json({ success: false, error: result.error });
         }
         
         // Transform and normalize domain list for UI (sanitize raw SmarterMail data)
-        // The response structure is { domains: [...] } or { domainList: [...] }
-        const rawDomains = result.data.domains || result.data.domainList || [];
+        // The response structure is { results: [...] } or { domains: [...] }
+        const rawDomains = result.data.results || result.data.domains || result.data.domainList || [];
         const domains = rawDomains.map(d => ({
             name: typeof d === 'string' ? d : (d.name || d.domainName || 'Unknown'),
             userCount: d.userCount || null,
@@ -3626,7 +3633,14 @@ app.get('/api/admin/smartermail/stats', requireAdmin, async (req, res) => {
         }
         
         // Get domain list to count
-        const domainsResult = await callSmarterMailAPI('GET', '/settings/sysadmin/domain-list');
+        // Correct endpoint: POST /settings/sysadmin/domain-list-search
+        const domainsResult = await callSmarterMailAPI('POST', '/settings/sysadmin/domain-list-search', {
+            skip: 0,
+            take: 500,
+            search: null,
+            sortField: 'domainName',
+            sortDescending: false
+        });
         
         if (!domainsResult.success) {
             return res.status(500).json({ success: false, error: domainsResult.error });
