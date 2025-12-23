@@ -1532,3 +1532,274 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.id === 'edit-record-modal') closeRecordModal();
     });
 });
+
+// ============================================
+// MCP TEMPLATE CREATION SECTION
+// ============================================
+
+let mcpDesigns = [];
+let mcpTemplates = [];
+
+async function loadMcpData() {
+    await Promise.all([
+        loadMcpDesigns(),
+        loadMcpSchema(),
+        loadMcpDudaTemplates(),
+        testMcpConnection()
+    ]);
+}
+
+async function testMcpConnection() {
+    try {
+        const response = await authFetch('/api/admin/mcp/test');
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('mcp-stat-api').textContent = data.results.partnerApi ? '✅ Connected' : '❌ Error';
+            document.getElementById('mcp-stat-token').textContent = data.results.mcpToken ? '✅ Set' : '❌ Missing';
+            document.getElementById('mcp-stat-sites').textContent = data.results.siteCount || '-';
+            
+            // Count master templates
+            const templatesResponse = await authFetch('/api/templates');
+            const templatesData = await templatesResponse.json();
+            const masterCount = (templatesData.templates || []).filter(t => t.isMasterTemplate).length;
+            document.getElementById('mcp-stat-masters').textContent = masterCount + '/6';
+        }
+    } catch (error) {
+        console.error('MCP test error:', error);
+        document.getElementById('mcp-stat-api').textContent = '❌ Error';
+    }
+}
+
+async function loadMcpDesigns() {
+    try {
+        const response = await authFetch('/api/admin/mcp/template-designs');
+        const data = await response.json();
+        
+        if (data.success) {
+            mcpDesigns = data.designs;
+            renderMcpDesigns();
+        }
+    } catch (error) {
+        console.error('Error loading MCP designs:', error);
+    }
+}
+
+function renderMcpDesigns() {
+    const grid = document.getElementById('mcp-designs-grid');
+    if (!grid) return;
+    
+    grid.innerHTML = mcpDesigns.map(design => `
+        <div style="padding: 16px; background: linear-gradient(135deg, ${design.colors.primary}22 0%, ${design.colors.secondary}22 100%); border-radius: 12px; border-left: 4px solid ${design.colors.primary};">
+            <h4 style="margin-bottom: 8px; color: ${design.colors.primary};">${design.name}</h4>
+            <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">${design.description}</p>
+            <div style="display: flex; gap: 6px;">
+                <span style="width: 24px; height: 24px; border-radius: 4px; background: ${design.colors.primary}; display: inline-block;" title="Primary"></span>
+                <span style="width: 24px; height: 24px; border-radius: 4px; background: ${design.colors.secondary}; display: inline-block;" title="Secondary"></span>
+                <span style="width: 24px; height: 24px; border-radius: 4px; background: ${design.colors.accent}; display: inline-block;" title="Accent"></span>
+                <span style="width: 24px; height: 24px; border-radius: 4px; background: ${design.colors.background}; border: 1px solid #ddd; display: inline-block;" title="Background"></span>
+            </div>
+            <div style="margin-top: 8px; font-size: 12px; color: #9ca3af;">
+                Fonts: ${design.fonts.heading} / ${design.fonts.body}
+            </div>
+        </div>
+    `).join('');
+}
+
+async function loadMcpSchema() {
+    try {
+        const response = await authFetch('/api/admin/mcp/collection-schema');
+        const data = await response.json();
+        
+        if (data.success) {
+            const schemaDiv = document.getElementById('mcp-schema');
+            if (schemaDiv) {
+                schemaDiv.innerHTML = data.schema.fields.map(field => `
+                    <div style="padding: 8px 12px; background: #f1f5f9; border-radius: 6px; font-size: 13px;">
+                        <code style="color: #6B46C1;">${field.name}</code>
+                        <span style="color: #9ca3af; margin-left: 6px;">(${field.type})</span>
+                    </div>
+                `).join('');
+            }
+        }
+    } catch (error) {
+        console.error('Error loading MCP schema:', error);
+    }
+}
+
+async function loadMcpDudaTemplates() {
+    const select = document.getElementById('mcp-base-template');
+    const createBtn = document.getElementById('create-masters-btn');
+    
+    try {
+        const response = await authFetch('/api/admin/mcp/duda-templates');
+        const data = await response.json();
+        
+        if (data.success && data.templates) {
+            mcpTemplates = Array.isArray(data.templates) ? data.templates : (data.templates.results || []);
+            
+            select.innerHTML = '<option value="">Select a base template...</option>' + 
+                mcpTemplates.map(t => `<option value="${t.template_id || t.template_name}">${t.template_name || t.template_id}</option>`).join('');
+            
+            createBtn.disabled = false;
+        } else {
+            select.innerHTML = '<option value="">No templates available</option>';
+        }
+    } catch (error) {
+        console.error('Error loading DUDA templates:', error);
+        select.innerHTML = '<option value="">Error loading templates</option>';
+    }
+}
+
+async function loadMcpDudaSites() {
+    const container = document.getElementById('mcp-sites-list');
+    container.innerHTML = '<p style="color: #64748b;">Loading sites...</p>';
+    
+    try {
+        const response = await authFetch('/api/admin/mcp/sites');
+        const data = await response.json();
+        
+        if (data.success) {
+            const sites = Array.isArray(data.sites) ? data.sites : (data.sites.results || []);
+            
+            if (sites.length === 0) {
+                container.innerHTML = '<p style="color: #64748b;">No sites found</p>';
+                return;
+            }
+            
+            container.innerHTML = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Site Name</th>
+                            <th>Template</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sites.map(site => `
+                            <tr>
+                                <td><code>${site.site_name}</code></td>
+                                <td>${site.template_id || '-'}</td>
+                                <td><span class="badge ${site.publish_status === 'PUBLISHED' ? 'badge-success' : 'badge-warning'}">${site.publish_status || 'DRAFT'}</span></td>
+                                <td>
+                                    <button class="btn btn-secondary btn-sm" onclick="createCollectionOnSite('${site.site_name}')">Add Collection</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            container.innerHTML = `<p style="color: #ef4444;">Error: ${data.error}</p>`;
+        }
+    } catch (error) {
+        console.error('Error loading DUDA sites:', error);
+        container.innerHTML = `<p style="color: #ef4444;">Error loading sites: ${error.message}</p>`;
+    }
+}
+
+async function createCollectionOnSite(siteName) {
+    if (!confirm(`Create ChurchData collection on ${siteName}?`)) return;
+    
+    try {
+        const response = await authFetch(`/api/admin/mcp/sites/${encodeURIComponent(siteName)}/create-collection`, {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message || 'Collection created successfully');
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        alert('Error creating collection: ' + error.message);
+    }
+}
+
+async function createMasterTemplates() {
+    const select = document.getElementById('mcp-base-template');
+    const btn = document.getElementById('create-masters-btn');
+    const statusDiv = document.getElementById('mcp-creation-status');
+    const progressDiv = document.getElementById('mcp-creation-progress');
+    
+    const baseTemplateId = select.value;
+    if (!baseTemplateId) {
+        alert('Please select a base template');
+        return;
+    }
+    
+    if (!confirm('This will create 6 master church templates from the selected base template. Continue?')) {
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.textContent = 'Creating templates...';
+    statusDiv.style.display = 'block';
+    progressDiv.innerHTML = '<p>Starting template creation...</p>';
+    
+    try {
+        const response = await authFetch('/api/admin/mcp/create-master-templates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ baseTemplateId })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success || data.created?.length > 0) {
+            let html = '<h4 style="color: #16a34a; margin-bottom: 12px;">✅ Templates Created:</h4>';
+            html += '<ul style="list-style: none; padding: 0;">';
+            data.created.forEach(t => {
+                html += `<li style="padding: 8px; background: white; border-radius: 6px; margin-bottom: 6px;">
+                    <strong>${t.name}</strong> - <code>${t.siteName}</code>
+                </li>`;
+            });
+            html += '</ul>';
+            
+            if (data.errors?.length > 0) {
+                html += '<h4 style="color: #dc2626; margin-top: 12px;">❌ Errors:</h4>';
+                data.errors.forEach(e => {
+                    html += `<p style="color: #dc2626;">${e.name}: ${e.error}</p>`;
+                });
+            }
+            
+            progressDiv.innerHTML = html;
+            
+            // Refresh stats
+            await testMcpConnection();
+        } else {
+            progressDiv.innerHTML = `<p style="color: #dc2626;">Error: ${data.error || 'Unknown error'}</p>`;
+        }
+    } catch (error) {
+        progressDiv.innerHTML = `<p style="color: #dc2626;">Error: ${error.message}</p>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Create All 6 Master Templates';
+    }
+}
+
+// Event listeners for MCP section
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('test-mcp-btn')?.addEventListener('click', testMcpConnection);
+    document.getElementById('refresh-duda-sites-btn')?.addEventListener('click', loadMcpDudaSites);
+    document.getElementById('create-masters-btn')?.addEventListener('click', createMasterTemplates);
+    
+    document.getElementById('mcp-base-template')?.addEventListener('change', (e) => {
+        document.getElementById('create-masters-btn').disabled = !e.target.value;
+    });
+});
+
+// Load MCP data when MCP section is shown
+const originalShowSection = window.showSection || function(){};
+window.showSection = function(sectionName) {
+    if (typeof originalShowSection === 'function') {
+        originalShowSection(sectionName);
+    }
+    if (sectionName === 'mcp') {
+        loadMcpData();
+    }
+};

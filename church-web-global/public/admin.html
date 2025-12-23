@@ -736,6 +736,7 @@
                 <button data-section="templates">Templates</button>
                 <button data-section="dns">DNS</button>
                 <button data-section="mail">Mail</button>
+                <button data-section="mcp">MCP</button>
                 <button data-section="email">Email</button>
                 <button data-section="settings">Settings</button>
                 <button class="logout-btn" id="logout-btn">Logout</button>
@@ -1220,6 +1221,88 @@
                                 <button type="button" class="btn btn-secondary" id="cancel-mail-user-btn">Cancel</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- MCP Template Creation Section -->
+            <div class="section" id="section-mcp">
+                <div class="section-header">
+                    <h2>MCP Template Creation</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" id="test-mcp-btn">Test Connection</button>
+                    </div>
+                </div>
+                
+                <div class="stats-grid" id="mcp-stats" style="margin-bottom: 24px;">
+                    <div class="stat-card">
+                        <h4>Partner API</h4>
+                        <div class="value" id="mcp-stat-api">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>MCP Token</h4>
+                        <div class="value" id="mcp-stat-token">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>DUDA Sites</h4>
+                        <div class="value" id="mcp-stat-sites">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Master Templates</h4>
+                        <div class="value" id="mcp-stat-masters">-</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Available Design Styles</h3>
+                        <p style="color: #64748b; font-size: 14px;">These 6 design themes can be applied to templates</p>
+                    </div>
+                    <div id="mcp-designs-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
+                        <!-- Design cards will load here -->
+                    </div>
+                </div>
+                
+                <div class="card" style="margin-top: 24px;">
+                    <div class="card-header">
+                        <h3>Create Master Templates</h3>
+                        <p style="color: #64748b; font-size: 14px;">Create all 6 master church templates from a base DUDA template</p>
+                    </div>
+                    <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+                        <div class="form-group" style="flex: 1; min-width: 300px; margin-bottom: 0;">
+                            <label>Base Template ID</label>
+                            <select id="mcp-base-template">
+                                <option value="">Loading templates...</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" id="create-masters-btn" disabled>
+                            Create All 6 Master Templates
+                        </button>
+                    </div>
+                    <div id="mcp-creation-status" style="margin-top: 16px; display: none;">
+                        <div style="padding: 16px; background: #f0fdf4; border-radius: 8px; border: 1px solid #86efac;">
+                            <div id="mcp-creation-progress"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 24px;">
+                    <div class="card-header">
+                        <h3>DUDA Sites in Account</h3>
+                        <button class="btn btn-secondary btn-sm" id="refresh-duda-sites-btn">Refresh</button>
+                    </div>
+                    <div id="mcp-sites-list" style="max-height: 400px; overflow-y: auto;">
+                        <p style="color: #64748b;">Click "Refresh" to load sites</p>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 24px;">
+                    <div class="card-header">
+                        <h3>ChurchData Collection Schema</h3>
+                        <p style="color: #64748b; font-size: 14px;">Standard fields for all church templates</p>
+                    </div>
+                    <div id="mcp-schema" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;">
+                        <!-- Schema fields will load here -->
                     </div>
                 </div>
             </div>
