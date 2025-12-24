@@ -4223,11 +4223,29 @@ app.post('/api/admin/mcp/create-master-templates', requireAdmin, async (req, res
             try {
                 console.log(`Creating template: ${design.name}...`);
                 
-                // Create site from base template
-                const site = await dudaClient.sites.create({
-                    template_id: sanitizedBaseTemplateId,
-                    default_domain_prefix: `church-${designId}-master`
-                });
+                // Determine if this is a numeric template_id or a site_name to duplicate
+                const isNumericTemplate = /^\d+$/.test(sanitizedBaseTemplateId);
+                
+                let site;
+                if (isNumericTemplate) {
+                    // Create from DUDA template ID
+                    console.log(`Using template_id: ${sanitizedBaseTemplateId}`);
+                    site = await dudaClient.sites.create({
+                        template_id: sanitizedBaseTemplateId,
+                        default_domain_prefix: `church-${designId}-master`
+                    });
+                } else {
+                    // Duplicate existing site using direct API call
+                    console.log(`Duplicating site: ${sanitizedBaseTemplateId}`);
+                    const duplicateResult = await callDudaAPI('POST', `/sites/multiscreen/${sanitizedBaseTemplateId}/duplicate`, {
+                        new_default_domain_prefix: `church-${designId}-master`
+                    });
+                    
+                    if (!duplicateResult.success || !duplicateResult.data) {
+                        throw new Error(duplicateResult.error || 'Failed to duplicate site');
+                    }
+                    site = duplicateResult.data;
+                }
                 
                 console.log(`Site created: ${site.site_name}`);
                 
@@ -4294,11 +4312,12 @@ app.post('/api/admin/mcp/create-master-templates', requireAdmin, async (req, res
                 await new Promise(resolve => setTimeout(resolve, 500));
                 
             } catch (error) {
-                console.error(`Error creating ${design.name}:`, error.message);
+                const errorMsg = error?.message || error?.error || (typeof error === 'string' ? error : JSON.stringify(error));
+                console.error(`Error creating ${design.name}:`, errorMsg, error);
                 errors.push({
                     designId,
                     name: design.name,
-                    error: error.message
+                    error: errorMsg || 'Unknown error'
                 });
             }
         }
