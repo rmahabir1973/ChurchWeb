@@ -3823,36 +3823,42 @@ app.get('/api/admin/mcp/collection-schema', requireAdmin, (req, res) => {
 
 // List all DUDA templates available in the account
 app.get('/api/admin/mcp/duda-templates', requireAdmin, async (req, res) => {
+    console.log('[MCP] Templates endpoint called');
     try {
         if (!dudaClient) {
+            console.log('[MCP] DUDA Partner API not configured');
             return res.status(400).json({ success: false, error: 'DUDA Partner API not configured' });
         }
         
         // Try to get templates from DUDA API with timeout
         try {
+            console.log('[MCP] Trying templates API...');
             const result = await Promise.race([
                 callDudaAPI('GET', '/sites/multiscreen/templates'),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout after 10s')), 10000))
             ]);
             
-            console.log('Templates API result:', result.success, Array.isArray(result.data));
+            console.log('[MCP] Templates API result:', result.success, result.data ? 'has data' : 'no data');
             
             if (result.success && result.data) {
                 const templates = result.data.results || (Array.isArray(result.data) ? result.data : []);
+                console.log('[MCP] Templates from API:', templates.length);
                 if (templates.length > 0) {
                     return res.json({ success: true, templates });
                 }
             }
         } catch (apiError) {
-            console.log('Templates API unavailable:', apiError.message);
+            console.log('[MCP] Templates API unavailable:', apiError.message);
         }
         
         // Fallback: Get unique template IDs from existing sites
-        console.log('Falling back to extracting templates from sites...');
+        console.log('[MCP] Falling back to extracting templates from sites...');
         const sitesResult = await callDudaAPI('GET', '/sites/multiscreen?limit=100');
+        console.log('[MCP] Sites fallback result:', sitesResult.success, sitesResult.data ? 'has data' : 'no data');
         
         if (sitesResult.success && sitesResult.data) {
             const sites = sitesResult.data.results || (Array.isArray(sitesResult.data) ? sitesResult.data : []);
+            console.log('[MCP] Sites count for fallback:', sites.length);
             
             // Extract unique template_ids from sites
             const templateIds = [...new Set(sites.map(s => s.template_id).filter(Boolean))];
@@ -3862,13 +3868,14 @@ app.get('/api/admin/mcp/duda-templates', requireAdmin, async (req, res) => {
                 base_site_name: String(id)
             }));
             
-            console.log(`Found ${templates.length} unique templates from sites`);
+            console.log(`[MCP] Found ${templates.length} unique templates from sites`);
             return res.json({ success: true, templates, source: 'sites' });
         }
         
+        console.log('[MCP] All fallbacks failed');
         res.status(500).json({ success: false, error: 'Could not load templates' });
     } catch (error) {
-        console.error('Error listing DUDA templates:', error);
+        console.error('[MCP] Error listing DUDA templates:', error);
         res.status(500).json({ success: false, error: error.message || 'Failed to list templates' });
     }
 });

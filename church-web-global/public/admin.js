@@ -1631,8 +1631,24 @@ async function loadMcpDudaTemplates() {
     const select = document.getElementById('mcp-base-template');
     const createBtn = document.getElementById('create-masters-btn');
     
+    if (!select) {
+        console.log('Templates select not found');
+        return;
+    }
+    
+    console.log('Loading DUDA templates...');
+    select.innerHTML = '<option value="">Loading templates...</option>';
+    
     try {
-        const response = await authFetch('/api/admin/mcp/duda-templates');
+        // Add timeout for the fetch
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
+        
+        const response = await authFetch('/api/admin/mcp/duda-templates', {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
         const data = await response.json();
         console.log('Templates response:', data);
         
@@ -1653,14 +1669,18 @@ async function loadMcpDudaTemplates() {
                     return `<option value="${id}">${name}</option>`;
                 }).join('');
             
-            createBtn.disabled = false;
+            if (createBtn) createBtn.disabled = false;
         } else {
             console.log('Templates API error:', data.error);
-            select.innerHTML = '<option value="">No templates available</option>';
+            select.innerHTML = `<option value="">Error: ${data.error || 'No templates'}</option>`;
         }
     } catch (error) {
         console.error('Error loading DUDA templates:', error);
-        select.innerHTML = '<option value="">Error loading templates</option>';
+        if (error.name === 'AbortError') {
+            select.innerHTML = '<option value="">Request timed out</option>';
+        } else {
+            select.innerHTML = '<option value="">Error loading templates</option>';
+        }
     }
 }
 
