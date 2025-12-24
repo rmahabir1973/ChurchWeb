@@ -1634,15 +1634,28 @@ async function loadMcpDudaTemplates() {
     try {
         const response = await authFetch('/api/admin/mcp/duda-templates');
         const data = await response.json();
+        console.log('Templates response:', data);
         
         if (data.success && data.templates) {
             mcpTemplates = Array.isArray(data.templates) ? data.templates : (data.templates.results || []);
+            console.log('Loaded templates:', mcpTemplates.length);
             
+            if (mcpTemplates.length === 0) {
+                select.innerHTML = '<option value="">No templates found</option>';
+                return;
+            }
+            
+            // DUDA templates use base_site_name as the ID
             select.innerHTML = '<option value="">Select a base template...</option>' + 
-                mcpTemplates.map(t => `<option value="${t.template_id || t.template_name}">${t.template_name || t.template_id}</option>`).join('');
+                mcpTemplates.map(t => {
+                    const id = t.base_site_name || t.template_id || t.template_name;
+                    const name = t.template_name || t.base_site_name || id;
+                    return `<option value="${id}">${name}</option>`;
+                }).join('');
             
             createBtn.disabled = false;
         } else {
+            console.log('Templates API error:', data.error);
             select.innerHTML = '<option value="">No templates available</option>';
         }
     } catch (error) {
