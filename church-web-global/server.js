@@ -3828,17 +3828,45 @@ app.get('/api/admin/mcp/duda-templates', requireAdmin, async (req, res) => {
             return res.status(400).json({ success: false, error: 'DUDA Partner API not configured' });
         }
         
-        // Use direct API call for templates - DUDA API path is /sites/multiscreen/templates
-        const result = await callDudaAPI('GET', '/sites/multiscreen/templates');
-        console.log('Templates API result:', result.success, Array.isArray(result.data));
-        
-        if (result.success && result.data) {
-            // Templates can be array or { results: [...] }
-            const templates = result.data.results || (Array.isArray(result.data) ? result.data : []);
-            res.json({ success: true, templates });
-        } else {
-            res.status(500).json({ success: false, error: result.error || 'Failed to list templates' });
+        // Try to get templates from DUDA API with timeout
+        try {
+            const result = await Promise.race([
+                callDudaAPI('GET', '/sites/multiscreen/templates'),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+            ]);
+            
+            console.log('Templates API result:', result.success, Array.isArray(result.data));
+            
+            if (result.success && result.data) {
+                const templates = result.data.results || (Array.isArray(result.data) ? result.data : []);
+                if (templates.length > 0) {
+                    return res.json({ success: true, templates });
+                }
+            }
+        } catch (apiError) {
+            console.log('Templates API unavailable:', apiError.message);
         }
+        
+        // Fallback: Get unique template IDs from existing sites
+        console.log('Falling back to extracting templates from sites...');
+        const sitesResult = await callDudaAPI('GET', '/sites/multiscreen?limit=100');
+        
+        if (sitesResult.success && sitesResult.data) {
+            const sites = sitesResult.data.results || (Array.isArray(sitesResult.data) ? sitesResult.data : []);
+            
+            // Extract unique template_ids from sites
+            const templateIds = [...new Set(sites.map(s => s.template_id).filter(Boolean))];
+            const templates = templateIds.map(id => ({
+                template_id: id,
+                template_name: `Template ${id}`,
+                base_site_name: String(id)
+            }));
+            
+            console.log(`Found ${templates.length} unique templates from sites`);
+            return res.json({ success: true, templates, source: 'sites' });
+        }
+        
+        res.status(500).json({ success: false, error: 'Could not load templates' });
     } catch (error) {
         console.error('Error listing DUDA templates:', error);
         res.status(500).json({ success: false, error: error.message || 'Failed to list templates' });
