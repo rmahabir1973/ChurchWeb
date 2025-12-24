@@ -1,0 +1,140 @@
+2025-12-24 00:47:08.93
+fba8bc8a
+User
+Creating template: Traditional Classic...
+2025-12-24 00:47:11.09
+fba8bc8a
+User
+Site created: b1b6b821
+2025-12-24 00:47:11.13
+fba8bc8a
+User
+DUDA API Request Body: {"name":"ChurchData","fields":[{"name":"Welcome_Message","type":"plain_text"},{"name":"tagline","type":"plain_text"},{"name":"About_short_blurb","type":"plain_text"},{"name":"About_Story","type":"plain_text"},{"name":"Service_Times","type":"plain_text"},{"name":"Pastor_Name","type":"plain_text"},{"name":"Pastor_Title","type":"plain_text"},{"name":"Denomination","type":"plain_text"},{"name":"Contact_Email","type":"plain_text"},{"name":"Contact_Phone","type":"plain_text"},{"name":"Contact_Address"
+2025-12-24 00:47:11.13
+fba8bc8a
+User
+Theme note for b1b6b821: undefined
+2025-12-24 00:47:11.13
+fba8bc8a
+User
+DUDA API Request: POST https://api.duda.co/api/sites/multiscreen/b1b6b821/collection
+2025-12-24 00:47:11.21
+fba8bc8a
+User
+Collection created on b1b6b821
+2025-12-24 00:47:11.21
+fba8bc8a
+User
+Creating template: Warm Community...
+2025-12-24 00:47:11.21
+fba8bc8a
+User
+Error creating Traditional Classic: Cannot read properties of undefined (reading 'filter')
+2025-12-24 00:47:13.54
+fba8bc8a
+User
+Site created: eab27311
+2025-12-24 00:47:13.57
+fba8bc8a
+User
+Theme note for eab27311: undefined
+2025-12-24 00:47:13.57
+fba8bc8a
+User
+DUDA API Request Body: {"name":"ChurchData","fields":[{"name":"Welcome_Message","type":"plain_text"},{"name":"tagline","type":"plain_text"},{"name":"About_short_blurb","type":"plain_text"},{"name":"About_Story","type":"plain_text"},{"name":"Service_Times","type":"plain_text"},{"name":"Pastor_Name","type":"plain_text"},{"name":"Pastor_Title","type":"plain_text"},{"name":"Denomination","type":"plain_text"},{"name":"Contact_Email","type":"plain_text"},{"name":"Contact_Phone","type":"plain_text"},{"name":"Contact_Address"
+2025-12-24 00:47:13.57
+fba8bc8a
+User
+DUDA API Request: POST https://api.duda.co/api/sites/multiscreen/eab27311/collection
+2025-12-24 00:47:13.65
+fba8bc8a
+User
+Collection created on eab27311
+2025-12-24 00:47:13.65
+fba8bc8a
+User
+Error creating Warm Community: Cannot read properties of undefined (reading 'filter')
+2025-12-24 00:47:13.65
+fba8bc8a
+User
+Creating template: Bold & Dynamic...
+2025-12-24 00:47:15.70
+fba8bc8a
+User
+Site created: 2f5d0eff
+2025-12-24 00:47:15.73
+fba8bc8a
+User
+DUDA API Request Body: {"name":"ChurchData","fields":[{"name":"Welcome_Message","type":"plain_text"},{"name":"tagline","type":"plain_text"},{"name":"About_short_blurb","type":"plain_text"},{"name":"About_Story","type":"plain_text"},{"name":"Service_Times","type":"plain_text"},{"name":"Pastor_Name","type":"plain_text"},{"name":"Pastor_Title","type":"plain_text"},{"name":"Denomination","type":"plain_text"},{"name":"Contact_Email","type":"plain_text"},{"name":"Contact_Phone","type":"plain_text"},{"name":"Contact_Address"
+2025-12-24 00:47:15.73
+fba8bc8a
+User
+DUDA API Request: POST https://api.duda.co/api/sites/multiscreen/2f5d0eff/collection
+2025-12-24 00:47:15.73
+fba8bc8a
+User
+Theme note for 2f5d0eff: undefined
+2025-12-24 00:47:15.81
+fba8bc8a
+User
+Collection created on 2f5d0eff
+2025-12-24 00:47:15.81
+fba8bc8a
+User
+Creating template: Pastoral Calm...
+2025-12-24 00:47:15.81
+fba8bc8a
+User
+Error creating Bold & Dynamic: Cannot read properties of undefined (reading 'filter')
+2025-12-24 00:47:18.85
+fba8bc8a
+User
+Site created: b6318211
+2025-12-24 00:47:18.88
+fba8bc8a
+User
+Theme note for b6318211: undefined
+2025-12-24 00:47:18.88
+fba8bc8a
+User
+DUDA API Request Body: {"name":"ChurchData","fields":[{"name":"Welcome_Message","type":"plain_text"},{"name":"tagline","type":"plain_text"},{"name":"About_short_blurb","type":"plain_text"},{"name":"About_Story","type":"plain_text"},{"name":"Service_Times","type":"plain_text"},{"name":"Pastor_Name","type":"plain_text"},{"name":"Pastor_Title","type":"plain_text"},{"name":"Denomination","type":"plain_text"},{"name":"Contact_Email","type":"plain_text"},{"name":"Contact_Phone","type":"plain_text"},{"name":"Contact_Address"
+2025-12-24 00:47:18.88
+fba8bc8a
+User
+DUDA API Request: POST https://api.duda.co/api/sites/multiscreen/b6318211/collection
+2025-12-24 00:47:18.95
+fba8bc8a
+User
+Collection created on b6318211
+2025-12-24 00:47:18.95
+fba8bc8a
+User
+Error creating Pastoral Calm: Cannot read properties of undefined (reading 'filter')
+2025-12-24 00:47:18.95
+fba8bc8a
+User
+Creating template: Urban Contemporary...
+2025-12-24 00:47:21.07
+fba8bc8a
+User
+Site created: 3dc85c0e
+2025-12-24 00:47:21.10
+fba8bc8a
+User
+DUDA API Request: POST https://api.duda.co/api/sites/multiscreen/3dc85c0e/collection
+2025-12-24 00:47:21.10
+fba8bc8a
+User
+DUDA API Request Body: {"name":"ChurchData","fields":[{"name":"Welcome_Message","type":"plain_text"},{"name":"tagline","type":"plain_text"},{"name":"About_short_blurb","type":"plain_text"},{"name":"About_Story","type":"plain_text"},{"name":"Service_Times","type":"plain_text"},{"name":"Pastor_Name","type":"plain_text"},{"name":"Pastor_Title","type":"plain_text"},{"name":"Denomination","type":"plain_text"},{"name":"Contact_Email","type":"plain_text"},{"name":"Contact_Phone","type":"plain_text"},{"name":"Contact_Address"
+2025-12-24 00:47:21.10
+fba8bc8a
+User
+Theme note for 3dc85c0e: undefined
+2025-12-24 00:47:21.17
+fba8bc8a
+User
+Collection created on 3dc85c0e
+2025-12-24 00:47:21.17
+fba8bc8a
+User
+Error creating Urban Contemporary: Cannot read properties of undefined (reading 'filter')

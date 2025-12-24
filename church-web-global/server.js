@@ -4239,7 +4239,7 @@ app.post('/api/admin/mcp/create-master-templates', requireAdmin, async (req, res
                     });
                     console.log(`Theme applied to ${site.site_name}`);
                 } catch (themeError) {
-                    console.log(`Theme note for ${site.site_name}:`, themeError.message);
+                    console.log(`Theme note for ${site.site_name}:`, themeError?.message || 'Theme API not available');
                 }
                 
                 // Create ChurchData collection
@@ -4258,6 +4258,12 @@ app.post('/api/admin/mcp/create-master-templates', requireAdmin, async (req, res
                 
                 // Save to local templates config
                 const templatesConfig = loadConfig(TEMPLATES_CONFIG, { templates: [], lastUpdated: null });
+                
+                // Ensure templates array exists
+                if (!Array.isArray(templatesConfig.templates)) {
+                    templatesConfig.templates = [];
+                }
+                
                 const newTemplate = {
                     id: `master-${designId}`,
                     template_id: site.site_name,
