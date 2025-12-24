@@ -1,0 +1,86 @@
+2025-12-24 01:00:48.11
+acb27755
+User
+DUDA API Error [404]: RESTEASY003210: Could not find resource for full path: https://api.duda.co/api/sites/multiscreen/2daff939/duplicate
+2025-12-24 01:00:48.14
+acb27755
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2025-12-24 01:00:48.14
+acb27755
+User
+Error creating Bold & Dynamic: RESTEASY003210: Could not find resource for full path: https://api.duda.co/api/sites/multiscreen/2daff939/duplicate Error: RESTEASY003210: Could not find resource for full path: https://api.duda.co/api/sites/multiscreen/2daff939/duplicate
+2025-12-24 01:00:48.14
+acb27755
+User
+DUDA API Error [404]: RESTEASY003210: Could not find resource for full path: https://api.duda.co/api/sites/multiscreen/2daff939/duplicate
+2025-12-24 01:00:48.14
+acb27755
+User
+at /home/runner/workspace/church-web-global/server.js:4245:31
+2025-12-24 01:00:48.14
+acb27755
+User
+Creating template: Pastoral Calm...
+2025-12-24 01:00:48.14
+acb27755
+User
+Duplicating site: 2daff939
+2025-12-24 01:00:48.14
+acb27755
+User
+DUDA API Request: POST https://api.duda.co/api/sites/multiscreen/2daff939/duplicate
+2025-12-24 01:00:48.14
+acb27755
+User
+DUDA API Request Body: {"new_default_domain_prefix":"church-pastoral-calm-master"}
+2025-12-24 01:00:48.17
+acb27755
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2025-12-24 01:00:48.17
+acb27755
+User
+Duplicating site: 2daff939
+2025-12-24 01:00:48.17
+acb27755
+User
+Creating template: Urban Contemporary...
+2025-12-24 01:00:48.17
+acb27755
+User
+Error creating Pastoral Calm: RESTEASY003210: Could not find resource for full path: https://api.duda.co/api/sites/multiscreen/2daff939/duplicate Error: RESTEASY003210: Could not find resource for full path: https://api.duda.co/api/sites/multiscreen/2daff939/duplicate
+2025-12-24 01:00:48.17
+acb27755
+User
+at /home/runner/workspace/church-web-global/server.js:4245:31
+2025-12-24 01:00:48.17
+acb27755
+User
+DUDA API Request Body: {"new_default_domain_prefix":"church-urban-contemporary-master"}
+2025-12-24 01:00:48.17
+acb27755
+User
+DUDA API Request: POST https://api.duda.co/api/sites/multiscreen/2daff939/duplicate
+2025-12-24 01:00:48.17
+acb27755
+User
+DUDA API Error [404]: RESTEASY003210: Could not find resource for full path: https://api.duda.co/api/sites/multiscreen/2daff939/duplicate
+2025-12-24 01:00:48.20
+acb27755
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2025-12-24 01:00:48.20
+acb27755
+User
+Error creating Urban Contemporary: RESTEASY003210: Could not find resource for full path: https://api.duda.co/api/sites/multiscreen/2daff939/duplicate Error: RESTEASY003210: Could not find resource for full path: https://api.duda.co/api/sites/multiscreen/2daff939/duplicate
+2025-12-24 01:00:48.20
+acb27755
+User
+at /home/runner/workspace/church-web-global/server.js:4245:31
+2025-12-24 01:00:48.20
+acb27755
+User
+DUDA API Error [404]: RESTEASY003210: Could not find resource for full path: https://api.duda.co/api/sites/multiscreen/2daff939/duplicate
+Wrap
+Colors

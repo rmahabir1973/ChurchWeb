@@ -4235,16 +4235,12 @@ app.post('/api/admin/mcp/create-master-templates', requireAdmin, async (req, res
                         default_domain_prefix: `church-${designId}-master`
                     });
                 } else {
-                    // Duplicate existing site using direct API call
+                    // Duplicate existing site using SDK
                     console.log(`Duplicating site: ${sanitizedBaseTemplateId}`);
-                    const duplicateResult = await callDudaAPI('POST', `/sites/multiscreen/${sanitizedBaseTemplateId}/duplicate`, {
+                    site = await dudaClient.sites.duplicate({
+                        site_name: sanitizedBaseTemplateId,
                         new_default_domain_prefix: `church-${designId}-master`
                     });
-                    
-                    if (!duplicateResult.success || !duplicateResult.data) {
-                        throw new Error(duplicateResult.error || 'Failed to duplicate site');
-                    }
-                    site = duplicateResult.data;
                 }
                 
                 console.log(`Site created: ${site.site_name}`);
