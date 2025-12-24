@@ -3828,23 +3828,57 @@ app.get('/api/admin/mcp/duda-templates', requireAdmin, async (req, res) => {
             return res.status(400).json({ success: false, error: 'DUDA Partner API not configured' });
         }
         
-        const templates = await dudaClient.templates.list();
-        res.json({ success: true, templates });
+        // Use direct API call for templates - DUDA API path is /sites/multiscreen/templates
+        const templatesResult = await callDudaAPI('GET', '/sites/multiscreen/templates');
+        res.json({ success: true, templates: templatesResult || [] });
     } catch (error) {
         console.error('Error listing DUDA templates:', error);
         res.status(500).json({ success: false, error: error.message || 'Failed to list templates' });
     }
 });
 
-// List all sites in the account
+// List all sites in the account with full pagination
 app.get('/api/admin/mcp/sites', requireAdmin, async (req, res) => {
     try {
         if (!dudaClient) {
             return res.status(400).json({ success: false, error: 'DUDA Partner API not configured' });
         }
         
-        const sites = await dudaClient.sites.list();
-        res.json({ success: true, sites });
+        // Fetch all sites with pagination
+        const allSites = [];
+        let offset = 0;
+        const limit = 100;
+        let hasMore = true;
+        
+        while (hasMore) {
+            const result = await callDudaAPI('GET', `/sites/multiscreen?offset=${offset}&limit=${limit}`);
+            
+            if (result && result.results && result.results.length > 0) {
+                allSites.push(...result.results);
+                offset += limit;
+                // If we got fewer than the limit, we've reached the end
+                if (result.results.length < limit) {
+                    hasMore = false;
+                }
+            } else if (Array.isArray(result) && result.length > 0) {
+                allSites.push(...result);
+                offset += limit;
+                if (result.length < limit) {
+                    hasMore = false;
+                }
+            } else {
+                hasMore = false;
+            }
+            
+            // Safety limit to prevent infinite loops
+            if (offset > 2000) {
+                console.log('Safety limit reached at offset:', offset);
+                hasMore = false;
+            }
+        }
+        
+        console.log(`Fetched ${allSites.length} total sites`);
+        res.json({ success: true, sites: allSites });
     } catch (error) {
         console.error('Error listing sites:', error);
         res.status(500).json({ success: false, error: error.message || 'Failed to list sites' });
