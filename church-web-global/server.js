@@ -3829,8 +3829,16 @@ app.get('/api/admin/mcp/duda-templates', requireAdmin, async (req, res) => {
         }
         
         // Use direct API call for templates - DUDA API path is /sites/multiscreen/templates
-        const templatesResult = await callDudaAPI('GET', '/sites/multiscreen/templates');
-        res.json({ success: true, templates: templatesResult || [] });
+        const result = await callDudaAPI('GET', '/sites/multiscreen/templates');
+        console.log('Templates API result:', result.success, Array.isArray(result.data));
+        
+        if (result.success && result.data) {
+            // Templates can be array or { results: [...] }
+            const templates = result.data.results || (Array.isArray(result.data) ? result.data : []);
+            res.json({ success: true, templates });
+        } else {
+            res.status(500).json({ success: false, error: result.error || 'Failed to list templates' });
+        }
     } catch (error) {
         console.error('Error listing DUDA templates:', error);
         res.status(500).json({ success: false, error: error.message || 'Failed to list templates' });
@@ -3850,23 +3858,30 @@ app.get('/api/admin/mcp/sites', requireAdmin, async (req, res) => {
         const limit = 100;
         let hasMore = true;
         
+        console.log('Starting to fetch all DUDA sites with pagination...');
+        
         while (hasMore) {
             const result = await callDudaAPI('GET', `/sites/multiscreen?offset=${offset}&limit=${limit}`);
+            console.log(`Fetched offset ${offset}, result success: ${result.success}`);
             
-            if (result && result.results && result.results.length > 0) {
-                allSites.push(...result.results);
-                offset += limit;
-                // If we got fewer than the limit, we've reached the end
-                if (result.results.length < limit) {
-                    hasMore = false;
-                }
-            } else if (Array.isArray(result) && result.length > 0) {
-                allSites.push(...result);
-                offset += limit;
-                if (result.length < limit) {
+            if (result.success && result.data) {
+                // Response format can be { results: [...] } or direct array
+                const sites = result.data.results || (Array.isArray(result.data) ? result.data : []);
+                
+                if (sites.length > 0) {
+                    allSites.push(...sites);
+                    console.log(`Added ${sites.length} sites, total now: ${allSites.length}`);
+                    offset += limit;
+                    
+                    // If we got fewer than the limit, we've reached the end
+                    if (sites.length < limit) {
+                        hasMore = false;
+                    }
+                } else {
                     hasMore = false;
                 }
             } else {
+                console.log('API call failed or no data, stopping pagination');
                 hasMore = false;
             }
             
@@ -4271,9 +4286,27 @@ app.get('/api/admin/mcp/test', requireAdmin, async (req, res) => {
         
         if (dudaClient) {
             try {
-                const sites = await dudaClient.sites.list();
+                // Use direct API to get total count with pagination
+                let totalCount = 0;
+                let offset = 0;
+                const limit = 100;
+                let hasMore = true;
+                
+                while (hasMore) {
+                    const result = await callDudaAPI('GET', `/sites/multiscreen?offset=${offset}&limit=${limit}`);
+                    if (result.success && result.data) {
+                        const sites = result.data.results || (Array.isArray(result.data) ? result.data : []);
+                        totalCount += sites.length;
+                        offset += limit;
+                        if (sites.length < limit) hasMore = false;
+                    } else {
+                        hasMore = false;
+                    }
+                    if (offset > 2000) hasMore = false; // Safety limit
+                }
+                
                 results.partnerApi = true;
-                results.siteCount = sites.length || (sites.results ? sites.results.length : 0);
+                results.siteCount = totalCount;
             } catch (apiError) {
                 results.partnerApiError = apiError.message;
             }
