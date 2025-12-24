@@ -175,6 +175,7 @@ function switchSection(sectionName) {
     if (sectionName === 'settings') loadApiStatus();
     if (sectionName === 'dns') loadDnsZones();
     if (sectionName === 'mail') loadMailDomains();
+    if (sectionName === 'mcp') loadMcpData();
 }
 
 async function loadDashboardData() {
@@ -1826,13 +1827,3 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Load MCP data when MCP section is shown
-const originalShowSection = window.showSection || function(){};
-window.showSection = function(sectionName) {
-    if (typeof originalShowSection === 'function') {
-        originalShowSection(sectionName);
-    }
-    if (sectionName === 'mcp') {
-        loadMcpData();
-    }
-};
