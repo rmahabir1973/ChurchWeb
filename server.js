@@ -146,9 +146,31 @@ async function initializeDatabase() {
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(email, site_name)
-            )
-        `);
-        console.log('Database tables initialized');
+      )
+    `);
+    // Master templates table for MCP template tracking
+    await dbQuery(`
+      CREATE TABLE IF NOT EXISTS master_templates (
+        id SERIAL PRIMARY KEY,
+        template_id VARCHAR(100) UNIQUE NOT NULL,
+        design_id VARCHAR(100) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        site_name VARCHAR(255),
+        duda_template_id VARCHAR(100),
+        thumbnail_url TEXT,
+        colors JSONB,
+        fonts JSONB,
+        is_active BOOLEAN DEFAULT TRUE,
+        church_data_collection_created BOOLEAN DEFAULT FALSE,
+        content_library_configured BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await dbQuery(`CREATE INDEX IF NOT EXISTS idx_master_templates_design_id ON master_templates(design_id)`);
+    await dbQuery(`CREATE INDEX IF NOT EXISTS idx_master_templates_active ON master_templates(is_active)`);
+    console.log('Database tables initialized');
     } catch (error) {
         console.error('Database initialization error:', error);
     }
@@ -4258,7 +4280,7 @@ app.post('/api/admin/mcp/create-master-templates', requireAdmin, async (req, res
                 
                 // Create ChurchData collection
                 try {
-                    await callDudaAPI('POST', `/sites/multiscreen/${site.site_name}/collection`, {
+                    await callDudaAPI('POST', `/sites/multiscreen/${site.site_name}/collection/ChurchData`, {
                         name: CHURCH_DATA_COLLECTION_SCHEMA.name,
                         fields: CHURCH_DATA_COLLECTION_SCHEMA.fields.map(f => ({
                             name: f.name,
@@ -4423,3 +4445,22 @@ async function startServer() {
 }
 
 startServer().catch(console.error);
+
+
+// Counter endpoint for master templates
+app.get('/api/admin/mcp/master-templates/count', requireAdmin, async (req, res) => {
+  try {
+    const result = await dbQuery('SELECT COUNT(*) as count FROM master_templates WHERE is_active = TRUE');
+    const count = parseInt(result.rows[0]?.count || 0);
+    const totalDesigns = 6; // Number of template designs
+    res.json({
+      success: true,
+      count: count,
+      total: totalDesigns,
+      display: `${count}/${totalDesigns}`
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
