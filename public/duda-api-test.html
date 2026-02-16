@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duda API Endpoint Tester - ChurchWeb Global</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .info-box p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .credentials {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .credentials strong {
+            color: #856404;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .progress {
+            background: #e9ecef;
+            height: 30px;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .results {
+            margin-top: 30px;
+        }
+
+        .test-item {
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .test-header {
+            padding: 15px;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .test-header:hover {
+            background: #e9ecef;
+        }
+
+        .test-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .test-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-critical {
+            background: #dc3545;
+            color: white;
+        }
+
+        .badge-high {
+            background: #fd7e14;
+            color: white;
+        }
+
+        .badge-normal {
+            background: #6c757d;
+            color: white;
+        }
+
+        .status-icon {
+            font-size: 20px;
+            margin-right: 10px;
+        }
+
+        .test-body {
+            padding: 15px;
+            background: white;
+            display: none;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .test-body.show {
+            display: block;
+        }
+
+        .test-detail {
+            margin-bottom: 10px;
+        }
+
+        .test-detail strong {
+            color: #495057;
+            display: inline-block;
+            min-width: 120px;
+        }
+
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid transparent;
+        }
+
+        .summary-card.success {
+            border-color: #28a745;
+        }
+
+        .summary-card.error {
+            border-color: #dc3545;
+        }
+
+        .summary-card h3 {
+            font-size: 32px;
+            margin-bottom: 5px;
+        }
+
+        .summary-card p {
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        .download-section {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 20px;
+            border-radius: 6px;
+            margin-top: 30px;
+        }
+
+        .download-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+
+        .download-btn:hover {
+            background: #218838;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Duda API Endpoint Tester</h1>
+            <p>ChurchWeb Global - Partner API Access Verification</p>
+        </div>
+
+        <div class="content">
+            <div class="info-box">
+                <h3>📋 What This Tool Does</h3>
+                <p>
+                    This tool tests all critical Duda Partner API endpoints and generates a detailed report
+                    for Duda Support (Jem Perez). It will capture timestamps, URLs, IP addresses, and full
+                    error responses to help diagnose the 403 Forbidden errors you're experiencing.
+                </p>
+            </div>
+
+            <div class="credentials">
+                <strong>⚙️ Account:</strong> f7ba1c1754 (Enterprise Plan)<br>
+                <strong>🌐 Base URL:</strong> https://api.duda.co<br>
+                <strong>👤 Contact:</strong> Ryan, CEO - ChurchWeb Global
+            </div>
+
+            <button id="startTest" class="btn">
+                🚀 Start Testing All Endpoints
+            </button>
+
+            <div class="progress" id="progress">
+                <div class="progress-bar" id="progressBar">0%</div>
+            </div>
+
+            <div id="summarySection" style="display: none;">
+                <h2 style="margin-bottom: 20px;">📊 Test Summary</h2>
+                <div class="summary" id="summary"></div>
+            </div>
+
+            <div class="results" id="results"></div>
+
+            <div id="downloadSection" class="download-section" style="display: none;">
+                <h3 style="margin-bottom: 15px;">📥 Download Reports for Duda Support</h3>
+                <p style="margin-bottom: 15px;">
+                    Your test results are ready! Download these files and send the support ticket to Jem Perez.
+                </p>
+                <button class="download-btn" onclick="downloadSupportTicket()">
+                    📄 Download Support Ticket (.txt)
+                </button>
+                <button class="download-btn" onclick="downloadDetailedReport()">
+                    📊 Download Detailed Report (.json)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_USER = 'f7ba1c1754';
+        const API_PASSWORD = '8WQT31JBFHXD';
+        const BASE_URL = 'https://api.duda.co';
+
+        let testResults = [];
+        let currentIP = 'Detecting...';
+
+        // Get public IP
+        async function getPublicIP() {
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                currentIP = data.ip;
+                return data.ip;
+            } catch (error) {
+                currentIP = 'Unable to detect';
+                return 'Unable to detect';
+            }
+        }
+
+        // Test endpoints definition
+        const endpoints = [
+            {
+                method: 'GET',
+                endpoint: '/api/accounts/grant-access',
+                description: 'Authentication Test - Verify credentials work',
+                priority: 'HIGH'
+            },
+            {
+                method: 'GET',
+                endpoint: `/api/accounts/${API_USER}`,
+                description: 'Get Account Information',
+                priority: 'HIGH'
+            },
+            {
+                method: 'GET',
+                endpoint: `/api/accounts/${API_USER}/sites`,
+                description: 'List Sites Under Account',
+                priority: 'HIGH'
+            },
+            {
+                method: 'GET',
+                endpoint: '/api/sites/multiscreen/templates',
+                description: 'List Available Templates (Partner API)',
+                priority: 'CRITICAL'
+            },
+            {
+                method: 'GET',
+                endpoint: '/api/sites/multiscreen/templates/responsive',
+                description: 'List Responsive Templates',
+                priority: 'HIGH'
+            },
+            {
+                method: 'GET',
+                endpoint: '/api/ai/templates/capabilities',
+                description: 'Get AI Template Capabilities (Jan 2026 Feature)',
+                priority: 'CRITICAL'
+            },
+            {
+                method: 'POST',
+                endpoint: '/api/sites/multiscreen/templates/1000867/populate-with-ai',
+                description: '⭐ Populate Template with AI (NEW Jan 2026 - PRIMARY FEATURE)',
+                priority: 'CRITICAL',
+                payload: {
+                    business_description: 'A welcoming community church in Hamilton, Ontario serving families and youth',
+                    industry: 'Religious Organizations',
+                    location: 'Hamilton, Ontario, Canada'
+                }
+            },
+            {
+                method: 'POST',
+                endpoint: '/api/async-tasks/generate-site-with-ai',
+                description: 'Generate Complete Site with AI (Jan 2026 Feature)',
+                priority: 'CRITICAL',
+                payload: {
+                    template_id: '1000867',
+                    site_data: {
+                        site_name: `test-church-${Date.now()}`,
+                        site_domain: 'churchwebglobal.com'
+                    },
+                    ai_prompts: {
+                        business_description: 'Community church in Hamilton, Ontario',
+                        industry: 'Religious Organizations'
+                    }
+                }
+            },
+            {
+                method: 'POST',
+                endpoint: '/api/sites/multiscreen/create',
+                description: 'Create Site from Template (Partner API)',
+                priority: 'CRITICAL',
+                payload: {
+                    template_id: '1000867',
+                    site_data: {
+                        site_name: `test-site-${Date.now()}`,
+                        site_domain: 'churchwebglobal.com'
+                    }
+                }
+            },
+            {
+                method: 'GET',
+                endpoint: '/api/integrations/installed',
+                description: 'App Store API - List Installed Apps',
+                priority: 'NORMAL'
+            },
+            {
+                method: 'GET',
+                endpoint: '/api/sites/multiscreen',
+                description: 'Partner API - List Multiscreen Sites',
+                priority: 'HIGH'
+            },
+            {
+                method: 'GET',
+                endpoint: '/api/accounts/permissions',
+                description: 'Get Account Permissions',
+                priority: 'HIGH'
+            }
+        ];
+
+        // Test a single endpoint
+        async function testEndpoint(endpoint) {
+            const startTime = Date.now();
+            const timestamp = new Date().toISOString();
+            
+            const headers = new Headers();
+            headers.append('Authorization', 'Basic ' + btoa(`${API_USER}:${API_PASSWORD}`));
+            headers.append('Content-Type', 'application/json');
+            headers.append('Accept', 'application/json');
+
+            const options = {
+                method: endpoint.method,
+                headers: headers
+            };
+
+            if (endpoint.payload) {
+                options.body = JSON.stringify(endpoint.payload);
+            }
+
+            try {
+                const response = await fetch(`${BASE_URL}${endpoint.endpoint}`, options);
+                const elapsed = Date.now() - startTime;
+                
+                let responseBody;
+                const contentType = response.headers.get('content-type');
+                
+                try {
+                    if (contentType && contentType.includes('application/json')) {
+                        responseBody = await response.json();
+                    } else {
+                        responseBody = await response.text();
+                    }
+                } catch (e) {
+                    responseBody = 'Unable to parse response';
+                }
+
+                return {
+                    timestamp_utc: timestamp,
+                    priority: endpoint.priority,
+                    description: endpoint.description,
+                    method: endpoint.method,
+                    url: `${BASE_URL}${endpoint.endpoint}`,
+                    source_ip: currentIP,
+                    status_code: response.status,
+                    status_text: response.statusText,
+                    response_time_ms: elapsed,
+                    response_body: responseBody,
+                    request_payload: endpoint.payload || null,
+                    success: response.status < 400
+                };
+
+            } catch (error) {
+                return {
+                    timestamp_utc: timestamp,
+                    priority: endpoint.priority,
+                    description: endpoint.description,
+                    method: endpoint.method,
+                    url: `${BASE_URL}${endpoint.endpoint}`,
+                    source_ip: currentIP,
+                    status_code: 0,
+                    status_text: 'REQUEST FAILED',
+                    error: error.message,
+                    success: false
+                };
+            }
+        }
+
+        // Display a single test result
+        function displayTestResult(result, index) {
+            const resultsDiv = document.getElementById('results');
+            
+            const statusIcon = result.success ? '✅' : '❌';
+            const badgeClass = result.priority === 'CRITICAL' ? 'badge-critical' : 
+                               result.priority === 'HIGH' ? 'badge-high' : 'badge-normal';
+
+            const testItem = document.createElement('div');
+            testItem.className = 'test-item';
+            testItem.innerHTML = `
+                <div class="test-header" onclick="toggleTestBody(${index})">
+                    <div class="test-title">
+                        <span class="status-icon">${statusIcon}</span>
+                        <span class="test-badge ${badgeClass}">${result.priority}</span>
+                        <span>${result.description}</span>
+                    </div>
+                    <span>${result.status_code} ${result.status_text}</span>
+                </div>
+                <div class="test-body" id="test-body-${index}">
+                    <div class="test-detail"><strong>Timestamp:</strong> ${result.timestamp_utc}</div>
+                    <div class="test-detail"><strong>Method:</strong> ${result.method}</div>
+                    <div class="test-detail"><strong>URL:</strong> ${result.url}</div>
+                    <div class="test-detail"><strong>Source IP:</strong> ${result.source_ip}</div>
+                    <div class="test-detail"><strong>Status:</strong> ${result.status_code} ${result.status_text}</div>
+                    <div class="test-detail"><strong>Response Time:</strong> ${result.response_time_ms || 0}ms</div>
+                    ${result.request_payload ? `
+                        <div class="test-detail"><strong>Request Payload:</strong></div>
+                        <div class="code-block">${JSON.stringify(result.request_payload, null, 2)}</div>
+                    ` : ''}
+                    <div class="test-detail"><strong>Response:</strong></div>
+                    <div class="code-block">${typeof result.response_body === 'object' ? 
+                        JSON.stringify(result.response_body, null, 2) : 
+                        result.response_body || result.error || 'No response'}</div>
+                </div>
+            `;
+            
+            resultsDiv.appendChild(testItem);
+        }
+
+        function toggleTestBody(index) {
+            const body = document.getElementById(`test-body-${index}`);
+            body.classList.toggle('show');
+        }
+
+        // Update summary
+        function updateSummary() {
+            const total = testResults.length;
+            const successes = testResults.filter(r => r.success).length;
+            const errors403 = testResults.filter(r => r.status_code === 403).length;
+            const otherErrors = testResults.filter(r => !r.success && r.status_code !== 403).length;
+
+            const summaryDiv = document.getElementById('summary');
+            summaryDiv.innerHTML = `
+                <div class="summary-card">
+                    <h3>${total}</h3>
+                    <p>Total Tests</p>
+                </div>
+                <div class="summary-card success">
+                    <h3>${successes}</h3>
+                    <p>✅ Successful</p>
+                </div>
+                <div class="summary-card error">
+                    <h3>${errors403}</h3>
+                    <p>❌ 403 Forbidden</p>
+                </div>
+                <div class="summary-card error">
+                    <h3>${otherErrors}</h3>
+                    <p>❌ Other Errors</p>
+                </div>
+            `;
+
+            document.getElementById('summarySection').style.display = 'block';
+        }
+
+        // Download support ticket
+        function downloadSupportTicket() {
+            const errors403 = testResults.filter(r => r.status_code === 403);
+            const successes = testResults.filter(r => r.success).length;
+            
+            let content = `${'='.repeat(80)}\n`;
+            content += `DUDA PARTNER API - 403 ERROR DETAILS FOR SUPPORT\n`;
+            content += `Response to: Jem Perez (Duda Support)\n`;
+            content += `${'='.repeat(80)}\n\n`;
+            content += `Account: ${API_USER} (Enterprise Plan)\n`;
+            content += `Test Date: ${new Date().toISOString()}\n`;
+            content += `Source IP: ${currentIP}\n`;
+            content += `Contact: Ryan, CEO - ChurchWeb Global\n\n`;
+            
+            content += `ISSUE SUMMARY:\n`;
+            content += `${'-'.repeat(80)}\n`;
+            content += `Authentication: ${successes > 0 ? '✅ Working' : '❌ Failed'} (credentials accepted)\n`;
+            content += `Partner API Endpoints: ❌ ${errors403.length} returning 403 Forbidden\n`;
+            content += `Total Tests Run: ${testResults.length}\n`;
+            content += `Successful: ${successes}\n`;
+            content += `403 Errors: ${errors403.length}\n\n`;
+            
+            content += `${'='.repeat(80)}\n`;
+            content += `CRITICAL ENDPOINTS BLOCKED (403 Forbidden)\n`;
+            content += `${'='.repeat(80)}\n\n`;
+            
+            errors403.forEach(result => {
+                if (result.priority === 'CRITICAL') {
+                    content += `⭐ CRITICAL: ${result.description}\n`;
+                } else {
+                    content += `• ${result.description}\n`;
+                }
+                content += `   URL: ${result.url}\n`;
+                content += `   Method: ${result.method}\n`;
+                content += `   Timestamp: ${result.timestamp_utc}\n`;
+                content += `   Status: ${result.status_code} ${result.status_text}\n`;
+                content += `   Source IP: ${result.source_ip}\n`;
+                content += `   Response: ${JSON.stringify(result.response_body, null, 6)}\n\n`;
+                content += `${'-'.repeat(80)}\n\n`;
+            });
+            
+            content += `\n${'='.repeat(80)}\n`;
+            content += `MOST CRITICAL MISSING FEATURE\n`;
+            content += `${'='.repeat(80)}\n\n`;
+            content += `⭐⭐⭐ /api/sites/multiscreen/templates/{template_id}/populate-with-ai\n\n`;
+            content += `This is the NEW January 2026 feature announced by Duda.\n`;
+            content += `This endpoint is THE PRIMARY USE CASE for our ChurchWeb platform.\n\n`;
+            content += `It allows us to:\n`;
+            content += `  1. Use professional Duda templates\n`;
+            content += `  2. Populate them with AI-generated church-specific content\n`;
+            content += `  3. Maintain design quality while automating content creation\n\n`;
+            content += `This solves the 'generic AI design' problem while keeping sites accessible.\n\n`;
+            
+            content += `${'='.repeat(80)}\n`;
+            content += `REQUESTED ACTION\n`;
+            content += `${'='.repeat(80)}\n\n`;
+            content += `Please verify and enable:\n`;
+            content += `  ✓ Full Partner API access (as confirmed by Jem Perez)\n`;
+            content += `  ✓ Early access to January 2026 AI features\n\n`;
+            content += `Thank you,\n`;
+            content += `Ryan\nCEO, ChurchWeb Global\n`;
+            content += `${'='.repeat(80)}\n`;
+
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `DUDA_SUPPORT_TICKET_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Download detailed report
+        function downloadDetailedReport() {
+            const errors403 = testResults.filter(r => r.status_code === 403);
+            const successes = testResults.filter(r => r.success);
+            
+            const report = {
+                metadata: {
+                    account: API_USER,
+                    base_url: BASE_URL,
+                    source_ip: currentIP,
+                    test_timestamp: new Date().toISOString(),
+                    total_tests: testResults.length,
+                    successful: successes.length,
+                    errors_403: errors403.length
+                },
+                critical_endpoints: testResults.filter(r => r.priority === 'CRITICAL'),
+                all_results: testResults,
+                errors_403_detailed: errors403,
+                successes: successes
+            };
+
+            const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `duda_api_detailed_report_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Run all tests
+        async function runTests() {
+            const btn = document.getElementById('startTest');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>Testing in progress...';
+            
+            const progress = document.getElementById('progress');
+            const progressBar = document.getElementById('progressBar');
+            progress.style.display = 'block';
+            
+            document.getElementById('results').innerHTML = '';
+            testResults = [];
+
+            await getPublicIP();
+
+            for (let i = 0; i < endpoints.length; i++) {
+                const percent = Math.round(((i + 1) / endpoints.length) * 100);
+                progressBar.style.width = percent + '%';
+                progressBar.textContent = `${percent}% - Testing ${i + 1} of ${endpoints.length}`;
+
+                const result = await testEndpoint(endpoints[i]);
+                testResults.push(result);
+                displayTestResult(result, i);
+
+                // Small delay to avoid rate limiting
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            updateSummary();
+            
+            btn.disabled = false;
+            btn.innerHTML = '✅ Testing Complete - Run Again';
+            document.getElementById('downloadSection').style.display = 'block';
+            
+            // Scroll to summary
+            document.getElementById('summarySection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Event listener
+        document.getElementById('startTest').addEventListener('click', runTests);
+    </script>
+</body>
+</html>
