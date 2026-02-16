@@ -78,6 +78,78 @@
             color: #856404;
         }
 
+        .credentials-form {
+            background: #f8f9fa;
+            border: 2px solid #667eea;
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .credentials-form h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group input[type="password"] {
+            padding-right: 60px;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 15px;
+            top: 38px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 12px;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .toggle-password:hover {
+            color: #764ba2;
+        }
+
+        .validation-message {
+            color: #dc3545;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .validation-message.show {
+            display: block;
+        }
+
         .btn {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -105,6 +177,34 @@
             opacity: 0.6;
             cursor: not-allowed;
             transform: none;
+        }
+
+        .form-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            flex: 1;
+        }
+
+        .form-btn:hover {
+            background: #5a6268;
+        }
+
+        .form-btn.secondary {
+            background: #f8f9fa;
+            color: #495057;
+            border: 2px solid #dee2e6;
+        }
+
+        .form-btn.secondary:hover {
+            background: #e9ecef;
+            border-color: #667eea;
         }
 
         .progress {
@@ -313,10 +413,40 @@
                 </p>
             </div>
 
-            <div class="credentials">
-                <strong>⚙️ Account:</strong> f7ba1c1754 (Enterprise Plan)<br>
-                <strong>🌐 Base URL:</strong> https://api.duda.co<br>
-                <strong>👤 Contact:</strong> Ryan, CEO - ChurchWeb Global
+            <div class="info-box" style="background: #e7f3ff; border-left-color: #2196F3;">
+                <h3 style="color: #2196F3;">💡 How to Use</h3>
+                <p>
+                    <strong>1.</strong> Enter your API credentials below (they're pre-filled with your current ones)<br>
+                    <strong>2.</strong> Click "Start Testing" to run all endpoint tests<br>
+                    <strong>3.</strong> Download the reports and send to Duda Support<br><br>
+                    <em>Note: If Duda sends you new credentials to test, just update the fields and run again!</em>
+                </p>
+            </div>
+
+            <div class="credentials-form">
+                <h3 style="margin-bottom: 15px;">🔐 API Credentials</h3>
+                <div class="form-group">
+                    <label for="apiUser">API Username / Account ID:</label>
+                    <input type="text" id="apiUser" placeholder="f7ba1c1754" value="f7ba1c1754">
+                </div>
+                <div class="form-group">
+                    <label for="apiPassword">API Password:</label>
+                    <input type="password" id="apiPassword" placeholder="Enter your API password" value="8WQT31JBFHXD">
+                    <span class="toggle-password" onclick="togglePassword()">👁️ Show</span>
+                </div>
+                <div class="form-group">
+                    <label for="baseUrl">Base URL:</label>
+                    <input type="text" id="baseUrl" placeholder="https://api.duda.co" value="https://api.duda.co">
+                </div>
+                <div class="form-group">
+                    <label for="contactName">Your Name / Company:</label>
+                    <input type="text" id="contactName" placeholder="Ryan, CEO - ChurchWeb Global" value="Ryan, CEO - ChurchWeb Global">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="form-btn secondary" onclick="clearForm()">🗑️ Clear Form</button>
+                    <button class="form-btn secondary" onclick="saveCredentials()">💾 Save to Browser</button>
+                    <button class="form-btn secondary" onclick="loadCredentials()">📂 Load Saved</button>
+                </div>
             </div>
 
             <button id="startTest" class="btn">
@@ -350,13 +480,112 @@
     </div>
 
     <script>
-        // Configuration
-        const API_USER = 'f7ba1c1754';
-        const API_PASSWORD = '8WQT31JBFHXD';
-        const BASE_URL = 'https://api.duda.co';
+        // Configuration - will be populated from form
+        let API_USER = '';
+        let API_PASSWORD = '';
+        let BASE_URL = '';
+        let CONTACT_NAME = '';
 
         let testResults = [];
         let currentIP = 'Detecting...';
+
+        // Toggle password visibility
+        function togglePassword() {
+            const passwordInput = document.getElementById('apiPassword');
+            const toggleBtn = document.querySelector('.toggle-password');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleBtn.textContent = '🙈 Hide';
+            } else {
+                passwordInput.type = 'password';
+                toggleBtn.textContent = '👁️ Show';
+            }
+        }
+
+        // Validate form inputs
+        function validateInputs() {
+            const user = document.getElementById('apiUser').value.trim();
+            const password = document.getElementById('apiPassword').value.trim();
+            const url = document.getElementById('baseUrl').value.trim();
+            const contact = document.getElementById('contactName').value.trim();
+
+            if (!user || !password || !url || !contact) {
+                alert('⚠️ Please fill in all fields before testing!');
+                return false;
+            }
+
+            // Validate URL format
+            try {
+                new URL(url);
+            } catch (e) {
+                alert('⚠️ Please enter a valid Base URL (e.g., https://api.duda.co)');
+                return false;
+            }
+
+            return true;
+        }
+
+        // Get form values
+        function getFormValues() {
+            API_USER = document.getElementById('apiUser').value.trim();
+            API_PASSWORD = document.getElementById('apiPassword').value.trim();
+            BASE_URL = document.getElementById('baseUrl').value.trim();
+            CONTACT_NAME = document.getElementById('contactName').value.trim();
+        }
+
+        // Clear form
+        function clearForm() {
+            if (confirm('Are you sure you want to clear all fields?')) {
+                document.getElementById('apiUser').value = '';
+                document.getElementById('apiPassword').value = '';
+                document.getElementById('baseUrl').value = 'https://api.duda.co';
+                document.getElementById('contactName').value = '';
+            }
+        }
+
+        // Save credentials to localStorage
+        function saveCredentials() {
+            const credentials = {
+                apiUser: document.getElementById('apiUser').value.trim(),
+                apiPassword: document.getElementById('apiPassword').value.trim(),
+                baseUrl: document.getElementById('baseUrl').value.trim(),
+                contactName: document.getElementById('contactName').value.trim()
+            };
+            
+            localStorage.setItem('dudaApiCredentials', JSON.stringify(credentials));
+            alert('✅ Credentials saved to browser!\n\nYou can now load them anytime by clicking "Load Saved".');
+        }
+
+        // Load credentials from localStorage
+        function loadCredentials() {
+            const saved = localStorage.getItem('dudaApiCredentials');
+            if (saved) {
+                const credentials = JSON.parse(saved);
+                document.getElementById('apiUser').value = credentials.apiUser || '';
+                document.getElementById('apiPassword').value = credentials.apiPassword || '';
+                document.getElementById('baseUrl').value = credentials.baseUrl || 'https://api.duda.co';
+                document.getElementById('contactName').value = credentials.contactName || '';
+                alert('✅ Credentials loaded from browser storage!');
+            } else {
+                alert('ℹ️ No saved credentials found.\n\nUse "Save to Browser" to store your credentials for quick access.');
+            }
+        }
+
+        // Auto-load credentials on page load
+        window.addEventListener('load', function() {
+            const saved = localStorage.getItem('dudaApiCredentials');
+            if (saved) {
+                const credentials = JSON.parse(saved);
+                // Only auto-fill if current fields are empty or default
+                if (!document.getElementById('apiUser').value || document.getElementById('apiUser').value === 'f7ba1c1754') {
+                    document.getElementById('apiUser').value = credentials.apiUser || 'f7ba1c1754';
+                    document.getElementById('apiPassword').value = credentials.apiPassword || '8WQT31JBFHXD';
+                    document.getElementById('baseUrl').value = credentials.baseUrl || 'https://api.duda.co';
+                    document.getElementById('contactName').value = credentials.contactName || 'Ryan, CEO - ChurchWeb Global';
+                }
+            }
+        });
 
         // Get public IP
         async function getPublicIP() {
@@ -624,7 +853,7 @@
             content += `Account: ${API_USER} (Enterprise Plan)\n`;
             content += `Test Date: ${new Date().toISOString()}\n`;
             content += `Source IP: ${currentIP}\n`;
-            content += `Contact: Ryan, CEO - ChurchWeb Global\n\n`;
+            content += `Contact: ${CONTACT_NAME}\n\n`;
             
             content += `ISSUE SUMMARY:\n`;
             content += `${'-'.repeat(80)}\n`;
@@ -672,7 +901,7 @@
             content += `  ✓ Full Partner API access (as confirmed by Jem Perez)\n`;
             content += `  ✓ Early access to January 2026 AI features\n\n`;
             content += `Thank you,\n`;
-            content += `Ryan\nCEO, ChurchWeb Global\n`;
+            content += `${CONTACT_NAME}\n`;
             content += `${'='.repeat(80)}\n`;
 
             const blob = new Blob([content], { type: 'text/plain' });
@@ -716,6 +945,14 @@
 
         // Run all tests
         async function runTests() {
+            // Validate inputs first
+            if (!validateInputs()) {
+                return;
+            }
+
+            // Get form values
+            getFormValues();
+
             const btn = document.getElementById('startTest');
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner"></span>Testing in progress...';
